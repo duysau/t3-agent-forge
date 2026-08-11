@@ -44,7 +44,7 @@ export function Step3BuildView(p: Step3ViewProps) {
         {p.error && (
           <div className="mt-4 flex flex-wrap items-center gap-3 rounded-xl bg-error-muted px-4 py-3">
             <p className="flex-1 text-sm text-error-strong">{p.error}</p>
-            <Button variant="outline" size="sm" onClick={p.onRetry}>
+            <Button variant="outline" size="sm" onClick={p.onRetry} disabled={p.busy !== null}>
               Thử lại
             </Button>
           </div>

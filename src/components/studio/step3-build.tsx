@@ -26,6 +26,7 @@ export function Step3Build({
 
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
   const started = useRef(false);
+  const running = useRef(false);
 
   const stopClock = useCallback(() => {
     if (timer.current) clearInterval(timer.current);
@@ -45,42 +46,49 @@ export function Step3Build({
   const evaluate = api.agent.evaluate.useMutation();
 
   const run = useCallback(async () => {
-    setError(null);
-    setLines([{ kind: "info", text: "Đang sinh persona, system prompt và guardrails…" }]);
-    startClock("Đang dựng agent");
+    if (running.current) return;
+    running.current = true;
 
     try {
-      const built = await build.mutateAsync({ slug });
-      stopClock();
-      setArtifacts(built);
-      setLines((l) => [
-        ...l,
-        { kind: "ok", text: `Persona: ${built.persona.name} · ${built.persona.role}` },
-        { kind: "ok", text: `${built.guardrails.length} guardrails` },
-        { kind: "info", text: "Đang sinh 20 test case và chấm điểm bằng LLM-judge…" },
-      ]);
+      setError(null);
+      setLines([{ kind: "info", text: "Đang sinh persona, system prompt và guardrails…" }]);
+      startClock("Đang dựng agent");
 
-      startClock("Đang chấm điểm");
-      const scored = await evaluate.mutateAsync({ slug });
-      stopClock();
-      setEvalSummary(scored);
-      setEvalResults(scored.results);
-      setLines((l) => [
-        ...l,
-        { kind: "ok", text: `${scored.passed}/${scored.total} bài đạt · pass rate ${scored.passRate}%` },
-        ...(scored.passed < scored.total
-          ? [
-              {
-                kind: "warn" as const,
-                text: `${scored.total - scored.passed} bài chưa đạt — xem chi tiết bên dưới`,
-              },
-            ]
-          : []),
-      ]);
-      onEvaluated();
-    } catch (err) {
-      stopClock();
-      setError(err instanceof Error ? err.message : "Không rõ nguyên nhân");
+      try {
+        const built = await build.mutateAsync({ slug });
+        stopClock();
+        setArtifacts(built);
+        setLines((l) => [
+          ...l,
+          { kind: "ok", text: `Persona: ${built.persona.name} · ${built.persona.role}` },
+          { kind: "ok", text: `${built.guardrails.length} guardrails` },
+          { kind: "info", text: "Đang sinh 20 test case và chấm điểm bằng LLM-judge…" },
+        ]);
+
+        startClock("Đang chấm điểm");
+        const scored = await evaluate.mutateAsync({ slug });
+        stopClock();
+        setEvalSummary(scored);
+        setEvalResults(scored.results);
+        setLines((l) => [
+          ...l,
+          { kind: "ok", text: `${scored.passed}/${scored.total} bài đạt · pass rate ${scored.passRate}%` },
+          ...(scored.passed < scored.total
+            ? [
+                {
+                  kind: "warn" as const,
+                  text: `${scored.total - scored.passed} bài chưa đạt — xem chi tiết bên dưới`,
+                },
+              ]
+            : []),
+        ]);
+        onEvaluated();
+      } catch (err) {
+        stopClock();
+        setError(err instanceof Error ? err.message : "Không rõ nguyên nhân");
+      }
+    } finally {
+      running.current = false;
     }
   }, [build, evaluate, onEvaluated, slug, startClock, stopClock]);
 

@@ -3,6 +3,7 @@ import { StrictMode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { EvalResult, Persona } from "~/server/agentforge/schemas";
 import { Step3Build } from "./step3-build";
+import type { Step3ViewProps } from "./step3-build-view";
 
 interface BuildInput {
   slug: string;
@@ -30,6 +31,22 @@ vi.mock("~/trpc/react", () => ({
     },
   },
 }));
+
+// Captures the container's latest `onRetry` callback so a test can invoke it
+// directly, bypassing the "Thử lại" button and its `disabled` DOM state entirely.
+// That disabled state is a UI courtesy, not the correctness guarantee — the
+// real guard is the `running` ref inside `run()` — so the re-entrancy test
+// below must go around the button, not through it.
+const retryProbe = vi.hoisted(() => ({ onRetry: null as (() => void) | null }));
+
+vi.mock("./step3-build-view", async () => {
+  const actual = await vi.importActual<typeof import("./step3-build-view")>("./step3-build-view");
+  function Step3BuildView(props: Step3ViewProps) {
+    retryProbe.onRetry = props.onRetry;
+    return actual.Step3BuildView(props);
+  }
+  return { ...actual, Step3BuildView };
+});
 
 const PERSONA: Persona = { name: "Sen", role: "Tư vấn", description: "d", avatarLetter: "S" };
 const BUILT: BuildOutput = { persona: PERSONA, systemPrompt: "prompt", guardrails: ["g1"] };
@@ -107,5 +124,39 @@ describe("Step3Build", () => {
 
     expect(await screen.findByText(/Backend không xử lý được/)).toBeInTheDocument();
     expect(evaluateMutation.mutateAsync).not.toHaveBeenCalled();
+  });
+
+  it("gọi Thử lại hai lần liên tiếp thì không chạy build hai lần đồng thời", async () => {
+    buildMutation.mutateAsync.mockRejectedValueOnce(new Error("Backend không xử lý được"));
+
+    renderStep3Build();
+
+    expect(await screen.findByText(/Backend không xử lý được/)).toBeInTheDocument();
+    expect(buildMutation.mutateAsync).toHaveBeenCalledTimes(1);
+
+    let resolveRetryBuild!: (value: BuildOutput) => void;
+    buildMutation.mutateAsync.mockImplementation(
+      () =>
+        new Promise<BuildOutput>((resolve) => {
+          resolveRetryBuild = resolve;
+        }),
+    );
+    evaluateMutation.mutateAsync.mockResolvedValue(EVALUATED);
+
+    // Gọi trực tiếp onRetry hai lần trong cùng một lượt đồng bộ — đi vòng qua nút
+    // "Thử lại" và trạng thái disabled của nó, để chỉ riêng ref `running` chặn
+    // lượt gọi thứ hai (không phải vì nút bị vô hiệu trong DOM).
+    act(() => {
+      retryProbe.onRetry?.();
+      retryProbe.onRetry?.();
+    });
+
+    expect(buildMutation.mutateAsync).toHaveBeenCalledTimes(2);
+
+    await act(async () => {
+      resolveRetryBuild(BUILT);
+    });
+
+    await waitFor(() => expect(evaluateMutation.mutateAsync).toHaveBeenCalledTimes(1));
   });
 });
