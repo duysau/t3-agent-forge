@@ -120,11 +120,36 @@ export const buildResponse = z
 
 const breakdownEntry = z.object({ pass: z.number().int(), total: z.number().int() });
 
+/**
+ * Thang điểm của LLM-judge: **0–5**. Đây là một GIẢ ĐỊNH đọc từ spec, chưa bao giờ
+ * đối chiếu với một response thật (xem `docs/contract-assumptions.md` #18) — mọi
+ * schema trong dự án này viết từ spec, nên thang 0–10 thay vì 0–5 đúng là loại
+ * chuyện sai tới khi chứng minh được là đúng.
+ *
+ * Vì sao phải chặn ở đây chứ không để DB chặn: cột `score` là `numeric(2,1)` (tối đa
+ * 9.9) và `avg_score` là `numeric(3,2)` (tối đa 9.99). Một score `10` gây
+ * `numeric field overflow` — một `Error` trần, nên `mapErrors` thay bằng message
+ * chung — **sau tối đa 300 giây** eval, tức báo một lệch contract thành lỗi hệ thống
+ * không rõ nguyên nhân, đúng lúc người dùng vừa chờ 5 phút. Chặn tại biên thì lệch
+ * thang nổi lên như một lỗi contract với nguyên nhân đúng, ngay lập tức. Từ chối một
+ * số 10 ở đây là thất bại ĐÚNG.
+ */
+export const SCORE_MAX = 5;
+
+const scoreSchema = z
+  .number()
+  .min(0, "score phải >= 0")
+  .max(SCORE_MAX, `score vượt thang 0-${SCORE_MAX} — backend có thể đã đổi thang điểm`);
+
 export const evalResponse = z
   .object({
     summary: z.object({
-      pass_rate: z.number(),
-      avg_score: z.number(),
+      // `pass_rate` là phần trăm và cột là `integer` (tối đa 2.147 tỷ), nên KHÔNG có
+      // nguy cơ overflow như `score`/`avg_score`. Vẫn chặn 0–100 vì một phần trăm
+      // ngoài khoảng đó là lệch contract, không phải dữ liệu. Lưu ý `saveEvalRun`
+      // làm tròn nó, nên 90.5 vào DB thành 91 — mất mát này ghi ở assumption #18.
+      pass_rate: z.number().min(0, "pass_rate phải >= 0").max(100, "pass_rate phải <= 100"),
+      avg_score: scoreSchema,
       passed: z.number().int(),
       total: z.number().int(),
       breakdown: z.object({
@@ -137,7 +162,7 @@ export const evalResponse = z
       z.object({
         question: z.string(),
         answer: z.string(),
-        score: z.number(),
+        score: scoreSchema,
         pass: z.boolean(),
         reasoning: z.string().nullish(),
         category: z.enum(["grounded", "trap", "edge"]),

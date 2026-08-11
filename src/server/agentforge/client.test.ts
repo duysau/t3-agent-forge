@@ -137,6 +137,30 @@ describe("createClient.evaluate", () => {
     expect(result.summary.passRate).toBe(RAW_EVAL.summary.pass_rate);
     expect(result.results[0]?.passed).toBe(true);
   });
+
+  /**
+   * Thang 0–10 (thay vì 0–5 mà spec ghi) phải nổ ở ĐÂY, tại biên, với kind
+   * `contract` — không phải sau đó ở `saveEvalRun` dưới dạng
+   * `numeric field overflow` (cột `score` là `numeric(2,1)`), một `Error` trần bị
+   * thay bằng message chung sau tối đa 300 giây chờ eval.
+   */
+  it("score 10 là lỗi contract tại biên, không phải numeric overflow ở DB", async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(
+      jsonRes({
+        ...RAW_EVAL,
+        results: [{ ...RAW_EVAL.results[0], score: 10 }],
+      }),
+    );
+    const client = createClient({ baseUrl: BASE, fetchImpl });
+
+    const err: unknown = await client
+      .evaluate({ sessionId: "sid", product: "chat" })
+      .then(() => null, (e: unknown) => e);
+
+    expect(err).toBeInstanceOf(AgentForgeError);
+    expect((err as AgentForgeError).kind).toBe("contract");
+    expect((err as AgentForgeError).detail).toContain("results.0.score");
+  });
 });
 
 describe("createClient.kbSnapshot", () => {

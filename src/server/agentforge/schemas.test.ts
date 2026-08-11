@@ -103,6 +103,54 @@ describe("evalResponse", () => {
     };
     expect(evalResponse.safeParse(bad).success).toBe(false);
   });
+
+  /**
+   * Thang điểm 0–5 là giả định, và nó phải vỡ TẠI BIÊN. Cột `score` là
+   * `numeric(2,1)` (tối đa 9.9) và `avg_score` là `numeric(3,2)` (tối đa 9.99), nên
+   * một điểm 10 gây `numeric field overflow` — đã kiểm trên PGlite — một `Error` trần
+   * bị thay bằng message chung, **sau tối đa 300 giây** eval. Từ chối số 10 ngay ở
+   * đây là thất bại đúng: nó nói ra lệch contract, đúng nguyên nhân, ngay lập tức.
+   */
+  it("từ chối score vượt thang 0-5 — thang 0-10 phải nổ tại biên, không phải overflow ở DB", () => {
+    const bad = {
+      ...RAW_EVAL,
+      results: [{ ...RAW_EVAL.results[0], score: 10 }],
+    };
+    const parsed = evalResponse.safeParse(bad);
+    expect(parsed.success).toBe(false);
+    expect(parsed.error?.issues.map((i) => i.path.join("."))).toContain("results.0.score");
+  });
+
+  it("từ chối avg_score vượt thang — cột numeric(3,2) cũng overflow ở 10", () => {
+    const bad = { ...RAW_EVAL, summary: { ...RAW_EVAL.summary, avg_score: 10 } };
+    expect(evalResponse.safeParse(bad).success).toBe(false);
+  });
+
+  it("từ chối score âm", () => {
+    const bad = { ...RAW_EVAL, results: [{ ...RAW_EVAL.results[0], score: -1 }] };
+    expect(evalResponse.safeParse(bad).success).toBe(false);
+  });
+
+  it("nhận điểm biên 0 và 5", () => {
+    const ok = {
+      ...RAW_EVAL,
+      summary: { ...RAW_EVAL.summary, avg_score: 5 },
+      results: [
+        { ...RAW_EVAL.results[0], score: 0 },
+        { ...RAW_EVAL.results[0], score: 5 },
+      ],
+    };
+    expect(evalResponse.safeParse(ok).success).toBe(true);
+  });
+
+  // `pass_rate` là phần trăm, cột `integer` — không overflow được, nhưng ngoài 0–100
+  // thì không còn là phần trăm.
+  it("từ chối pass_rate ngoài 0-100", () => {
+    expect(
+      evalResponse.safeParse({ ...RAW_EVAL, summary: { ...RAW_EVAL.summary, pass_rate: 101 } })
+        .success,
+    ).toBe(false);
+  });
 });
 
 describe("kbResponse", () => {
