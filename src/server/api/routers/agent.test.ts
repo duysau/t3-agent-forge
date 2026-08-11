@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { TRPCError } from "@trpc/server";
 import { persistCrawl } from "~/server/services/agent-store";
 import { AgentForgeError } from "~/server/agentforge/errors";
+import { getLatestEvalRun } from "~/server/db/queries/eval";
 import { CRAWL_FIXTURE, makeHarness, type Harness } from "~/test/harness";
 
 const GENERIC_ERROR_MESSAGE = "Hệ thống gặp lỗi không mong muốn. Vui lòng thử lại.";
@@ -177,6 +178,15 @@ describe("agent.evaluate", () => {
     expect(evaluate).not.toHaveBeenCalled();
   });
 
+  it("chưa chọn sản phẩm thì từ chối, không gọi backend", async () => {
+    const agent = await h.seedAgent();
+    const evaluate = vi.fn();
+    await expect(
+      h.caller({ source: h.source({ evaluate }) }).agent.evaluate({ slug: agent.slug }),
+    ).rejects.toThrow(/chưa chọn sản phẩm/i);
+    expect(evaluate).not.toHaveBeenCalled();
+  });
+
   it("kết quả đọc lại qua agent.evalRun khớp với lượt vừa chạy", async () => {
     const agent = await h.seedAgent();
     const api = h.caller();
@@ -194,5 +204,24 @@ describe("agent.evalRun", () => {
   it("chưa chạy eval thì trả null", async () => {
     const agent = await h.seedAgent();
     expect(await h.caller().agent.evalRun({ slug: agent.slug })).toBeNull();
+  });
+
+  it("dựng lại sau khi eval thì ẩn bảng điểm cũ nhưng không xoá dữ liệu", async () => {
+    const agent = await h.seedAgent();
+    const api = h.caller();
+    await api.agent.setProduct({ slug: agent.slug, product: "chat" });
+    await api.agent.build({ slug: agent.slug });
+    await api.agent.evaluate({ slug: agent.slug });
+
+    const beforeRebuild = await api.agent.evalRun({ slug: agent.slug });
+    expect(beforeRebuild).not.toBeNull();
+
+    await api.agent.build({ slug: agent.slug });
+
+    const afterRebuild = await api.agent.evalRun({ slug: agent.slug });
+    expect(afterRebuild).toBeNull();
+
+    const stillStored = await getLatestEvalRun(h.db, agent.id);
+    expect(stillStored).toBeDefined();
   });
 });
