@@ -4,6 +4,7 @@ import { BackendStatusBanner } from "~/components/studio/backend-status-banner";
 import { Stepper } from "~/components/studio/stepper";
 import { Step1Source } from "~/components/studio/step1-source";
 import { Step2Product } from "~/components/studio/step2-product";
+import { Step3Build } from "~/components/studio/step3-build";
 import { useWizard } from "~/hooks/use-wizard";
 
 export default function HomePage() {
@@ -40,7 +41,16 @@ export default function HomePage() {
         />
       )}
 
-      {w.step >= 3 && (
+      {w.step === 3 && w.slug && (
+        <Step3Build
+          slug={w.slug}
+          onEvaluated={() => w.setEvaluated(true)}
+          onBack={() => w.goTo(2)}
+          onContinue={() => w.goTo(4)}
+        />
+      )}
+
+      {w.step === 4 && (
         <p className="rounded-2xl border border-dashed border-gray-300 bg-white p-10 text-center text-gray-500">
           Bước {w.step} thuộc Plan 2 — chưa triển khai.
         </p>
