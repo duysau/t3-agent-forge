@@ -54,6 +54,22 @@ export function Step1SourceView(p: Step1ViewProps) {
               Website doanh nghiệp
             </Label>
             <div className="flex gap-2">
+              {/*
+                Ba class dưới đây tồn tại chỉ để thắng phần base của `Input` (shadcn),
+                vì `cn()` là twMerge — nó chỉ gỡ xung đột TRONG CÙNG nhóm utility:
+                - `h-auto` gỡ `h-9` (36px) của base. Không thể dựa vào `py-3` để cao lên
+                  được: `h-*` và `py-*` khác nhóm nên base giữ nguyên 36px và padding bị
+                  ép bên trong. Chọn `h-auto` thay vì ghim `h-[47px]` để chiều cao vẫn do
+                  padding + font-size quyết định, đúng cơ chế của `.input` prototype
+                  (`padding:12px 14px; font-size:15px` — khớp `px-3.5 py-3 text-[15px]`).
+                - `md:text-[15px]` gỡ `md:text-sm` của base. Chỉ `text-[15px]` là không đủ:
+                  khác modifier nên twMerge giữ cả hai, và `md:text-sm` nằm trong media
+                  query nên thắng từ 768px lên — tức cỡ chữ 15px chết trên mọi màn desktop.
+                - `focus-visible:` (không phải `focus:`) để gỡ đúng
+                  `focus-visible:border-ring/ring-3/ring-ring/50` của base, nếu không viền
+                  focus của prototype (`--primary` + `0 0 0 4px var(--fci-50)`) không bao
+                  giờ hiện. `focus:outline-none` cũ đã bỏ: base có `outline-none` vô điều kiện.
+              */}
               <Input
                 id="url"
                 type="url"
@@ -61,7 +77,7 @@ export function Step1SourceView(p: Step1ViewProps) {
                 onChange={(e) => p.onUrlChange(e.target.value)}
                 placeholder="https://senspa.vn"
                 disabled={p.crawling}
-                className="w-full rounded-lg border border-gray-300 bg-white px-3.5 py-3 text-[15px] transition-[border-color,box-shadow] focus:border-primary focus:ring-4 focus:ring-fci-50 focus:outline-none"
+                className="h-auto w-full rounded-lg border border-gray-300 bg-white px-3.5 py-3 text-[15px] transition-[border-color,box-shadow] focus-visible:border-primary focus-visible:ring-4 focus-visible:ring-fci-50 md:text-[15px]"
               />
               <Button onClick={p.onCrawl} disabled={p.crawling || p.url.trim().length === 0}>
                 {p.crawling ? "Đang crawl…" : "Crawl website"}

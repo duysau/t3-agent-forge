@@ -218,4 +218,28 @@ describe("Step1SourceView", () => {
     expect(container.querySelectorAll("svg.lucide-check").length).toBeGreaterThan(0);
     expect(container.querySelectorAll("svg.lucide-minus").length).toBeGreaterThan(0);
   });
+
+  /**
+   * Đo được trong jsdom là kết quả twMerge, không phải chiều cao render (không có
+   * stylesheet nào được áp). Nhưng đó đúng là chỗ đã hỏng: `h-9` (36px) và
+   * `md:text-sm` của base shadcn khác nhóm utility với `py-3`/`text-[15px]` nên
+   * sống sót và đè lên giá trị prototype.
+   */
+  it("class của base shadcn không còn đè lên ô nhập URL", () => {
+    render(<Step1SourceView {...props()} />);
+    const classes = screen.getByPlaceholderText("https://senspa.vn").className.split(/\s+/);
+
+    for (const dead of [
+      "h-9",
+      "md:text-sm",
+      "focus-visible:border-ring",
+      "focus-visible:ring-3",
+      "focus-visible:ring-ring/50",
+    ]) {
+      expect(classes).not.toContain(dead);
+    }
+    for (const want of ["h-auto", "py-3", "text-[15px]", "md:text-[15px]"]) {
+      expect(classes).toContain(want);
+    }
+  });
 });

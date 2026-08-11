@@ -96,12 +96,21 @@ export function ChatDemoView(p: ChatViewProps) {
           p.onSend();
         }}
       >
+        {/*
+          `h-auto` / `md:text-[14.5px]` / `focus-visible:` đều để thắng phần base của
+          `Input` (shadcn) — twMerge chỉ gỡ xung đột trong cùng nhóm utility, nên nếu
+          không có class cùng nhóm thì base thắng. Ở đây hậu quả nhìn thấy rõ nhất:
+          `h-9` của base cho ô nhập 36px nằm cạnh nút gửi `size-11` (44px), trong khi
+          `.chat-input input` của prototype cao hơn nút — `padding:11px 16px;
+          font-size:14.5px` (nên `py-[11px] px-4`, sửa từ `py-2.5` = 10px) — và chiều
+          cao đó do padding sinh ra, không phải một số ghim cứng.
+        */}
         <Input
           value={p.draft}
           onChange={(e) => p.onDraftChange(e.target.value)}
           placeholder="Nhập câu hỏi của bạn…"
           disabled={p.sending}
-          className="flex-1 rounded-full border border-gray-300 px-4 py-2.5 text-[14.5px] focus:border-primary focus:ring-[3px] focus:ring-fci-50"
+          className="h-auto flex-1 rounded-full border border-gray-300 px-4 py-[11px] text-[14.5px] focus-visible:border-primary focus-visible:ring-[3px] focus-visible:ring-fci-50 md:text-[14.5px]"
         />
         {/*
           Nút gửi giờ chỉ còn icon — không có chữ "Gửi" nào còn hiển thị trong DOM.
