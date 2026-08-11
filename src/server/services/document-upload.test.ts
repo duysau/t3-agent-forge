@@ -16,6 +16,7 @@ const CRAWL = {
   sessionId: "sid",
   pages: [{ url: "https://senspa.vn", title: "Sen Spa", status: "ok" }],
   kbFacts: ["fact"],
+  factsSource: "llm",
   chunks: ["web 1", "web 2"],
   totalChunks: 2,
 };

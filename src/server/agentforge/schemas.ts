@@ -19,6 +19,17 @@ export const crawlResponse = z
       }),
     ),
     kb_facts: z.array(z.string()),
+    // `"llm"` = facts do LLM trích; `"heuristic"` = LLM lỗi/timeout nên backend rơi về
+    // fallback, facts chỉ là dòng đầu mỗi chunk.
+    //
+    // CỐ Ý dùng `z.string()` chứ không `z.enum(["llm","heuristic"])`: đây là tín hiệu
+    // CHỈ ĐỂ HIỂN THỊ, không nuôi cột DB nào. Nếu backend thêm giá trị thứ ba, enum sẽ
+    // làm cả lượt crawl vỡ tại biên — biến một field mang tính tư vấn thành sự cố toàn
+    // phần. Khác hẳn `score`, bị chặn miền vì nó chảy vào cột `numeric(2,1)` và lệch
+    // thang gây tràn số thật. Ở đây fail-open là đúng: giá trị lạ thì không cảnh báo gì.
+    //
+    // `.nullish()` vì backend cũ (trước 2026-08-11) không trả field này.
+    facts_source: z.string().nullish(),
     chunks: z.array(z.string()),
     total_chunks: z.number().int(),
   })
@@ -26,6 +37,7 @@ export const crawlResponse = z
     sessionId: r.session_id,
     pages: r.pages.map((p) => ({ url: p.url, title: p.title ?? null, status: p.status })),
     kbFacts: r.kb_facts,
+    factsSource: r.facts_source ?? null,
     chunks: r.chunks,
     totalChunks: r.total_chunks,
   }));

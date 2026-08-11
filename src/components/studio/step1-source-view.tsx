@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef } from "react";
-import { ArrowRight, Check, FileUp, Minus } from "lucide-react";
+import { ArrowRight, Check, FileUp, Minus, TriangleAlert } from "lucide-react";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import { DegradedBadge } from "~/components/ui/degraded-badge";
@@ -13,6 +13,13 @@ import { FIXTURES, type FixtureKey } from "~/lib/fixtures";
 export interface Step1Result {
   pages: Array<{ url: string; title: string | null; status: string }>;
   kbFacts: string[];
+  /**
+   * `"llm"` bình thường; `"heuristic"` nghĩa là backend đã rơi về fallback vì LLM
+   * lỗi/timeout, và facts chỉ là dòng đầu mỗi chunk. `null` với backend cũ chưa trả
+   * field này. Chỉ `"heuristic"` mới bật cảnh báo — giá trị lạ thì im lặng, vì đây là
+   * tín hiệu tư vấn, không phải điều kiện chặn.
+   */
+  factsSource: string | null;
   totalChunks: number;
   degraded: boolean;
   brandName: string | null;
@@ -215,6 +222,25 @@ export function Step1SourceView(p: Step1ViewProps) {
                   <Check className="size-4" />
                   Facts trích xuất được
                 </h4>
+                {/*
+                  Chỉ so đúng chuỗi "heuristic". Giá trị lạ (backend thêm loại mới) thì
+                  không cảnh báo gì — đây là tín hiệu tư vấn, không phải điều kiện chặn,
+                  nên đoán sai hướng "im lặng" rẻ hơn hướng "báo động sai".
+                */}
+                {p.result.factsSource === "heuristic" && (
+                  <p
+                    data-testid="facts-heuristic-warning"
+                    className="mb-3 flex items-start gap-2 rounded-lg border border-warning/50 bg-warning-muted px-3 py-2 text-[13px] text-warning-strong"
+                  >
+                    <TriangleAlert className="mt-0.5 size-3.5 shrink-0" />
+                    <span>
+                      Facts dưới đây lấy bằng phương án dự phòng (LLM trích xuất lỗi hoặc quá
+                      thời gian), nên chỉ là dòng đầu mỗi đoạn văn bản. Nên crawl lại; nếu vẫn
+                      vậy thì bảng điểm ở Bước 3 sẽ kém tin cậy hơn bình thường.
+                    </span>
+                  </p>
+                )}
+
                 <ul className="flex flex-col gap-2.25">
                   {p.result.kbFacts.map((fact) => (
                     <li key={fact} className="flex gap-2.5 text-sm text-gray-700">

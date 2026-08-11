@@ -26,6 +26,25 @@ describe("crawlResponse", () => {
     expect(r.totalChunks).toBe(12);
   });
 
+  it("giữ facts_source lại — Zod mặc định loại field lạ, nên phải khai mới thấy", () => {
+    const r = crawlResponse.parse({ ...RAW_CRAWL, facts_source: "heuristic" });
+    expect(r.factsSource).toBe("heuristic");
+  });
+
+  it("backend cũ không trả facts_source thì thành null, không vỡ", () => {
+    const withoutFactsSource = { ...RAW_CRAWL };
+    delete (withoutFactsSource as { facts_source?: unknown }).facts_source;
+    const r = crawlResponse.parse(withoutFactsSource);
+    expect(r.factsSource).toBeNull();
+  });
+
+  it("facts_source giá trị lạ vẫn parse được — fail-open cho một field chỉ để hiển thị", () => {
+    // CỐ Ý không dùng z.enum: nếu backend thêm loại thứ ba, enum sẽ làm cả lượt crawl
+    // vỡ tại biên. Đổi lấy: giá trị lạ đi qua và UI đơn giản không cảnh báo gì.
+    const r = crawlResponse.parse({ ...RAW_CRAWL, facts_source: "cached" });
+    expect(r.factsSource).toBe("cached");
+  });
+
   it("bỏ qua field lạ backend thêm vào", () => {
     const r = crawlResponse.parse({ ...RAW_CRAWL, field_moi_toanh: 123 });
     expect(r).not.toHaveProperty("field_moi_toanh");

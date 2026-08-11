@@ -32,6 +32,10 @@ export function createFixtureSource(
         sessionId,
         pages: f.pages,
         kbFacts: f.kbFacts,
+        // Fixture đại diện một lượt crawl LÀNH: facts do LLM trích. Nếu để null ở đây
+        // thì chế độ kịch bản mẫu sẽ không bao giờ khớp nhánh cảnh báo, và ta mất chỗ
+        // duy nhất chạy được nhánh "llm" mà không cần backend thật.
+        factsSource: "llm",
         chunks: f.chunks,
         totalChunks: f.chunks.length,
       };

@@ -77,6 +77,7 @@ describe("createLiveSource", () => {
       sessionId: "sid",
       pages: [],
       kbFacts: [],
+      factsSource: "llm",
       chunks: [],
       totalChunks: 0,
     });
