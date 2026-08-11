@@ -215,7 +215,7 @@ export function Step1SourceView(p: Step1ViewProps) {
                   <Check className="size-4" />
                   Facts trích xuất được
                 </h4>
-                <ul className="grid gap-2 md:grid-cols-2">
+                <ul className="flex flex-col gap-2.25">
                   {p.result.kbFacts.map((fact) => (
                     <li key={fact} className="flex gap-2.5 text-sm text-gray-700">
                       <Check className="mt-0.5 size-3.5 shrink-0 text-success" />
