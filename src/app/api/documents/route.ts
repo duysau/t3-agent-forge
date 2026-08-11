@@ -3,7 +3,9 @@ import { db } from "~/server/db";
 import { env } from "~/env";
 import { resolveSource } from "~/server/agentforge/resolve";
 import { AgentForgeError } from "~/server/agentforge/errors";
-import { ingestDocument } from "~/server/services/document-upload";
+import { logBoundary } from "~/server/agentforge/log";
+import { GENERIC_ERROR_MESSAGE } from "~/server/api/trpc";
+import { IngestRejection, ingestDocument } from "~/server/services/document-upload";
 import type { Db } from "~/server/db/types";
 
 export const maxDuration = 60;
@@ -48,7 +50,18 @@ export async function POST(request: Request) {
       const status = err.kind === "bad_request" ? 400 : err.kind === "upstream" ? 502 : 500;
       return NextResponse.json({ detail: err.detail ?? err.message }, { status });
     }
-    const message = err instanceof Error ? err.message : "Lỗi không xác định";
-    return NextResponse.json({ detail: message }, { status: 400 });
+    if (err instanceof IngestRejection) {
+      return NextResponse.json({ detail: err.message }, { status: 400 });
+    }
+    // Lỗi không xác định (driver DB chết, null deref, ...) — không phải một
+    // trong ba từ chối có chủ đích của `ingestDocument`. Route handler này
+    // KHÔNG đi qua middleware tRPC (`mapErrors` trong `~/server/api/trpc`) nên
+    // phải tự lặp lại cùng nguyên tắc: log nguyên nhân thật ở server, không
+    // để message gốc (thường tiếng Anh, có thể lộ host:port hạ tầng) lọt ra
+    // client dưới một status 400 đổ lỗi cho người dùng.
+    logBoundary("documents:unhandled", {
+      detail: err instanceof Error ? err.message : String(err),
+    });
+    return NextResponse.json({ detail: GENERIC_ERROR_MESSAGE }, { status: 500 });
   }
 }

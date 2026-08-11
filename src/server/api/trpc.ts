@@ -22,7 +22,7 @@ import type { AgentForgeSource } from "~/server/agentforge/source";
  * client. Không bao giờ để message gốc (thường là tiếng Anh, có thể lộ chi tiết
  * hạ tầng như host:port) tới người dùng — xem `mapErrors` bên dưới.
  */
-const GENERIC_ERROR_MESSAGE = "Hệ thống gặp lỗi không mong muốn. Vui lòng thử lại.";
+export const GENERIC_ERROR_MESSAGE = "Hệ thống gặp lỗi không mong muốn. Vui lòng thử lại.";
 
 /**
  * 1. CONTEXT

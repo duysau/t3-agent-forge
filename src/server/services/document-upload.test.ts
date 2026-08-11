@@ -7,7 +7,7 @@ import { createFixtureSource } from "~/server/agentforge/fixture-source";
 import { AgentForgeError } from "~/server/agentforge/errors";
 import type { AgentForgeSource } from "~/server/agentforge/source";
 import { getAgentAggregate, persistCrawl } from "./agent-store";
-import { ingestDocument } from "./document-upload";
+import { IngestRejection, ingestDocument } from "./document-upload";
 
 let db: Db;
 let close: () => Promise<void>;
@@ -119,14 +119,17 @@ describe("ingestDocument", () => {
     });
   });
 
-  it("slug không tồn tại thì ném lỗi rõ ràng", async () => {
+  it("slug không tồn tại thì ném IngestRejection rõ ràng", async () => {
     const source = createFixtureSource("senspa", { delayMs: 0 });
     await expect(
       ingestDocument({ db, source }, { slug: "khongcogi12", file: pdf() }),
     ).rejects.toThrow(/không tìm thấy agent/i);
+    await expect(
+      ingestDocument({ db, source }, { slug: "khongcogi12", file: pdf() }),
+    ).rejects.toBeInstanceOf(IngestRejection);
   });
 
-  it("agent chưa có session Python thì ném lỗi thay vì gọi backend", async () => {
+  it("agent chưa có session Python thì ném IngestRejection thay vì gọi backend", async () => {
     const agent = await persistCrawl(db, {
       sourceUrl: "https://x.vn",
       mode: "live",
@@ -142,10 +145,13 @@ describe("ingestDocument", () => {
     await expect(
       ingestDocument({ db, source }, { slug: agent.slug, file: pdf() }),
     ).rejects.toThrow(/chưa có session/i);
+    await expect(
+      ingestDocument({ db, source }, { slug: agent.slug, file: pdf() }),
+    ).rejects.toBeInstanceOf(IngestRejection);
     expect(uploadDocument).not.toHaveBeenCalled();
   });
 
-  it("agent đang dùng kịch bản mẫu thì từ chối nạp tài liệu, không gọi backend", async () => {
+  it("agent đang dùng kịch bản mẫu thì từ chối nạp tài liệu bằng IngestRejection, không gọi backend", async () => {
     const agent = await persistCrawl(db, {
       sourceUrl: "https://senspa.vn",
       mode: "fixture",
@@ -158,6 +164,36 @@ describe("ingestDocument", () => {
       uploadDocument,
     };
 
+    await expect(
+      ingestDocument({ db, source }, { slug: agent.slug, file: pdf() }),
+    ).rejects.toThrow(/kịch bản mẫu/i);
+    await expect(
+      ingestDocument({ db, source }, { slug: agent.slug, file: pdf() }),
+    ).rejects.toBeInstanceOf(IngestRejection);
+    expect(uploadDocument).not.toHaveBeenCalled();
+  });
+
+  it("crawl tụt hạng để lại pythonSessionId dạng fixture- thì từ chối nạp tài liệu thật (Finding 2)", async () => {
+    // Mô phỏng đúng hiện trạng `withFallback` tạo ra: mode ghi đúng ý định
+    // người dùng ("live") nhưng sessionId là session giả do backend degrade
+    // giữa lượt crawl — xem `resolve.ts` withFallback + `agent-store.ts`
+    // persistCrawl. Guard `mode === "fixture"` không bắt được trường hợp này.
+    const agent = await persistCrawl(db, {
+      sourceUrl: "https://senspa.vn",
+      mode: "live",
+      degraded: true,
+      crawl: { ...CRAWL, sessionId: "fixture-senspa" },
+    });
+    const uploadDocument = vi.fn();
+    const source: AgentForgeSource = {
+      ...createFixtureSource("senspa", { delayMs: 0 }),
+      kind: "live",
+      uploadDocument,
+    };
+
+    await expect(
+      ingestDocument({ db, source }, { slug: agent.slug, file: pdf() }),
+    ).rejects.toBeInstanceOf(IngestRejection);
     await expect(
       ingestDocument({ db, source }, { slug: agent.slug, file: pdf() }),
     ).rejects.toThrow(/kịch bản mẫu/i);

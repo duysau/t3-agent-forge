@@ -16,6 +16,19 @@ export interface IngestResult {
 }
 
 /**
+ * Ba trường hợp từ chối CÓ CHỦ ĐÍCH, message tiếng Việt đã sẵn sàng cho người
+ * dùng: agent không tồn tại, agent đang dùng kịch bản mẫu, agent chưa có
+ * session. `/api/documents` phân biệt lớp này (400, message giữ nguyên) với
+ * lỗi hệ thống không lường trước (log + message chung) bằng `instanceof`.
+ */
+export class IngestRejection extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "IngestRejection";
+  }
+}
+
+/**
  * Nạp PDF vào knowledge base của agent.
  *
  * **Không tụt hạng sang fixture ở đây, có chủ đích.** Bản chụp KB là ảnh của cả
@@ -29,17 +42,28 @@ export async function ingestDocument(
   input: { slug: string; file: File },
 ): Promise<IngestResult> {
   const agg = await getAgentAggregate(deps.db, input.slug);
-  if (!agg) throw new Error(`Không tìm thấy agent ${input.slug}`);
+  if (!agg) throw new IngestRejection(`Không tìm thấy agent ${input.slug}`);
 
   if (agg.agent.mode === "fixture") {
-    throw new Error(
+    throw new IngestRejection(
       "Agent đang dùng kịch bản mẫu nên không nạp được tài liệu thật — hãy crawl một website thật trước",
     );
   }
 
   const sessionId = agg.agent.pythonSessionId;
   if (!sessionId) {
-    throw new Error("Agent chưa có session Python — hãy crawl trước khi nạp tài liệu");
+    throw new IngestRejection("Agent chưa có session Python — hãy crawl trước khi nạp tài liệu");
+  }
+
+  // Guard chống session giả: một lượt crawl tụt hạng (`withFallback`) trả
+  // `sessionId` dạng `fixture-<key>` nhưng vẫn ghi `mode: "live"` (mode ghi
+  // đúng Ý ĐỊNH người dùng, không phải kết quả) — xem `withFallback` và
+  // `persistCrawl`. Guard `mode === "fixture"` phía trên không bắt được
+  // trường hợp này, nên phải kiểm luôn hình dạng của sessionId.
+  if (sessionId.startsWith("fixture-")) {
+    throw new IngestRejection(
+      "Agent đang dùng kịch bản mẫu nên không nạp được tài liệu thật — hãy crawl một website thật trước",
+    );
   }
 
   const uploaded = await deps.source.uploadDocument({ sessionId, file: input.file });
