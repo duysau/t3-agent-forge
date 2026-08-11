@@ -1,6 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
+import { Step2ProductView } from "./step2-product-view";
 import { Step3BuildView, type Step3ViewProps } from "./step3-build-view";
 
 const PERSONA = { name: "Sen", role: "Tư vấn", description: "d", avatarLetter: "S" };
@@ -88,5 +89,31 @@ describe("Step3BuildView", () => {
     }));
     render(<Step3BuildView {...props({ evalSummary: SUMMARY, evalResults: results })} />);
     expect(screen.getAllByTestId("eval-row")).toHaveLength(20);
+  });
+
+  /**
+   * Bước 3 từng là bước duy nhất còn bọc trong `Card` của shadcn, nên đi 2 → 3 → 4
+   * là thấy khung đổi: bo 16px → 12px, shadow-md → shadow-xs, thân 32px → 24px, và
+   * mất cả chân `gray-25` lẫn hiệu ứng vào của panel. So thẳng với Bước 2 thì bất
+   * biến "khung không đổi giữa các bước" được ghim lại, thay vì chỉ chép một chuỗi
+   * class mà lần sau lệch nữa cũng không ai biết.
+   */
+  it("dùng đúng khung Panel như các bước khác", () => {
+    const step3 = render(<Step3BuildView {...props()} />).container.firstElementChild;
+    const step2 = render(
+      <Step2ProductView
+        product="chat"
+        onSelect={vi.fn()}
+        voiceId={null}
+        onVoiceChange={vi.fn()}
+        onBack={vi.fn()}
+        onContinue={vi.fn()}
+        saving={false}
+      />,
+    ).container.firstElementChild;
+
+    expect(step3?.className).toBe(step2?.className);
+    expect(step3?.className).toContain("rounded-2xl");
+    expect(step3?.className).toContain("animate-panel-fade");
   });
 });
