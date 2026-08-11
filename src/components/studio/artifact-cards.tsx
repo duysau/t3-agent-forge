@@ -12,7 +12,7 @@ export function ArtifactCards({
 }) {
   return (
     <div className="mt-6 space-y-5">
-      <div className="grid gap-5 md:grid-cols-2">
+      <div className="grid gap-5 min-[900px]:grid-cols-2">
         <div className="overflow-hidden rounded-xl border border-border">
           <div className="flex items-center gap-2 border-b border-border bg-gray-25 px-4 py-[13px] text-[13.5px] font-bold text-gray-700">
             Persona

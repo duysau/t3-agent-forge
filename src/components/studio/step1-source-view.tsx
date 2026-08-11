@@ -48,7 +48,7 @@ export function Step1SourceView(p: Step1ViewProps) {
           base. Có thể thêm PDF bảng giá hoặc catalogue.
         </PanelSub>
 
-        <div className="grid gap-6 md:grid-cols-2">
+        <div className="grid gap-6 min-[900px]:grid-cols-2">
           <div>
             <Label htmlFor="url" className={FIELD_LABEL}>
               Website doanh nghiệp

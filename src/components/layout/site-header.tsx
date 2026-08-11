@@ -3,7 +3,7 @@ const NAV = ["Sản phẩm", "Giải pháp", "Bảng giá", "Tài liệu", "Về
 export function SiteHeader() {
   return (
     <header className="sticky top-0 z-50 border-b border-border bg-white/90 backdrop-blur-md">
-      <div className="mx-auto flex h-17 max-w-[1160px] items-center gap-8 px-6">
+      <div className="mx-auto flex h-17 max-w-[1160px] items-center gap-8 px-6 max-[640px]:px-4">
         <div className="flex items-center gap-2.5">
           <span className="grid size-[34px] place-items-center rounded-[9px] bg-gradient-to-br from-fci-400 to-fci-600 text-[17px] font-extrabold text-white shadow-glow">
             A

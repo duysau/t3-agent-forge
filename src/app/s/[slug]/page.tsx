@@ -64,7 +64,7 @@ export default async function DemoPage({ params }: { params: Promise<{ slug: str
 
   if (result.kind === "unavailable") {
     return (
-      <div className="mx-auto max-w-xl px-6 py-24 text-center">
+      <div className="mx-auto max-w-xl px-6 py-24 text-center max-[640px]:px-4">
         <h1 className="text-2xl font-extrabold text-gray-900">Không tải được trang demo</h1>
         <p className="mt-2 rounded-lg bg-error-muted px-4 py-3 text-[13px] text-error-strong">
           Hệ thống đang gặp sự cố, chưa thể mở trang demo lúc này. Vui lòng thử lại sau ít phút.
@@ -76,8 +76,8 @@ export default async function DemoPage({ params }: { params: Promise<{ slug: str
   const d = result.data;
 
   return (
-    <div className="mx-auto max-w-3xl px-6 py-10">
-      <div className="overflow-hidden rounded-2xl border border-border bg-card">
+    <div className="mx-auto max-w-3xl px-6 py-10 max-[640px]:px-4">
+      <div className="overflow-hidden rounded-2xl border border-border bg-white shadow-lg">
         <BrandBar
           name={d.brandName}
           letter={d.brandLogoLetter}
@@ -102,7 +102,7 @@ export default async function DemoPage({ params }: { params: Promise<{ slug: str
 
       {d.evalSummary && <EvalSummary summary={d.evalSummary} />}
 
-      <p className="mt-6 text-center text-[13px] text-muted-foreground">
+      <p className="mt-[22px] flex items-center justify-center gap-1.5 text-center text-[12.5px] text-gray-400">
         Trang demo do AgentForge sinh tự động · FPT Smart Cloud
       </p>
     </div>

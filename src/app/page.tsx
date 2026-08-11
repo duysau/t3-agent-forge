@@ -17,7 +17,7 @@ export default function HomePage() {
     <>
       <Hero />
 
-      <section id="studio" className="mx-auto max-w-[1160px] px-6 pt-11 pb-20">
+      <section id="studio" className="mx-auto max-w-[1160px] px-6 pt-11 pb-20 max-[640px]:px-4">
         <StudioHead onReset={w.reset} canReset={w.slug !== null} />
 
         <div className="mb-6">

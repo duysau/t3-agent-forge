@@ -8,7 +8,7 @@
  */
 export function Mascot() {
   return (
-    <div className="relative w-full max-w-[380px] animate-floaty">
+    <div className="relative w-full max-w-[380px] animate-floaty max-[900px]:max-w-[220px]">
       <div className="absolute top-[2%] -left-[2%] z-10 animate-bubble rounded-2xl rounded-bl-[4px] border border-fci-100 bg-white px-[15px] py-[9px] text-[15px] font-bold whitespace-nowrap text-fci-700 shadow-md max-[900px]:hidden">
         Xin chào! 👋
       </div>

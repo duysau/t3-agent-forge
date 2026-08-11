@@ -80,7 +80,7 @@ export function Step2ProductView({
           chọn.
         </PanelSub>
 
-        <div className="grid gap-5 md:grid-cols-2">
+        <div className="grid gap-5 min-[900px]:grid-cols-2">
           {CARDS.map((c) => {
             const selected = product === c.product;
             const Icon = c.icon;
