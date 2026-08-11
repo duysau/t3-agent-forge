@@ -41,7 +41,7 @@ export function Stepper({
               >
                 {done ? <Check className="size-4" strokeWidth={3} /> : s.n}
               </span>
-              <span className="hidden md:block">
+              <span>
                 <span className="block text-[11px] font-semibold uppercase tracking-[0.06em] text-gray-400">
                   {s.kicker}
                 </span>
