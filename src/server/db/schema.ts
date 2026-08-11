@@ -13,9 +13,10 @@ import {
 
 export const createTable = pgTableCreator((name) => `agentforge_${name}`);
 
-// LEGACY (scaffold example): kept only so the example `post` router/component
-// still type-checks. Task 11 removes the `post` router and this table together.
-// See task-3-report.md for the rationale (Task 3, ambiguity #3).
+// LEGACY (scaffold example table, originally `web_post`): kept only so the
+// untouched example `post` router/component still type-checks. Remove this
+// table together with `~/server/api/routers/post.ts` and `~/app/_components/post.tsx`
+// once those are deleted.
 export const posts = createTable(
   "post",
   {

@@ -8,5 +8,5 @@ export default {
   dbCredentials: {
     url: env.DATABASE_URL,
   },
-  tablesFilter: ["web_*"],
+  tablesFilter: ["agentforge_*"],
 } satisfies Config;
