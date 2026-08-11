@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "~/trpc/react";
+import { notifyOk } from "~/lib/notify";
 import type { EvalResult, Persona } from "~/server/agentforge/schemas";
 import { Step3BuildView } from "./step3-build-view";
 import type { TerminalLine } from "./build-terminal";
@@ -106,6 +107,7 @@ export function Step3Build({
             : []),
         ]);
         onEvaluatedChange(true);
+        notifyOk(`Kiểm định xong · ${scored.passed}/${scored.total} bài đạt`);
       } catch (err) {
         stopClock();
         setError(err instanceof Error ? err.message : "Không rõ nguyên nhân");

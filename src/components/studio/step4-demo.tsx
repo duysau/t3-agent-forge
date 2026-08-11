@@ -10,6 +10,7 @@ import { NotBuiltNotice } from "~/components/demo/not-built-notice";
 import { isAgentBuilt } from "~/lib/agent-status";
 import { api } from "~/trpc/react";
 import { toQrDataUrl } from "~/lib/qr";
+import { notifyOk } from "~/lib/notify";
 import { ShareBox } from "./share-box";
 
 // navigator.clipboard chỉ tồn tại trong secure context — localhost thì có,
@@ -124,7 +125,10 @@ export function Step4Demo({ slug, onBack }: { slug: string; onBack: () => void }
           onShowQr={() => {
             setQrError(null);
             void toQrDataUrl(shareUrl)
-              .then(setQrDataUrl)
+              .then((url) => {
+                setQrDataUrl(url);
+                notifyOk("Đã sinh mã QR — chiếu lên là quét được");
+              })
               .catch(() => {
                 setQrDataUrl(null);
                 setQrError(QR_FALLBACK_MESSAGE);

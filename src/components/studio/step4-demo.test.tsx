@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { DemoPayload } from "~/server/api/routers/demo";
@@ -8,7 +8,7 @@ interface BySlugInput {
   slug: string;
 }
 
-const { demoQuery, sendMutation, toQrDataUrl } = vi.hoisted(() => ({
+const { demoQuery, sendMutation, toQrDataUrl, notifyOk } = vi.hoisted(() => ({
   demoQuery: {
     data: undefined as DemoPayload | undefined,
     isPending: false,
@@ -19,6 +19,7 @@ const { demoQuery, sendMutation, toQrDataUrl } = vi.hoisted(() => ({
     isPending: false,
   },
   toQrDataUrl: vi.fn<(text: string) => Promise<string>>(),
+  notifyOk: vi.fn<(message: string) => void>(),
 }));
 
 vi.mock("~/trpc/react", () => ({
@@ -34,6 +35,10 @@ vi.mock("~/trpc/react", () => ({
 
 vi.mock("~/lib/qr", () => ({
   toQrDataUrl,
+}));
+
+vi.mock("~/lib/notify", () => ({
+  notifyOk,
 }));
 
 const PAYLOAD: DemoPayload = {
@@ -77,6 +82,7 @@ describe("Step4Demo", () => {
     sendMutation.mutateAsync.mockReset();
     toQrDataUrl.mockReset();
     toQrDataUrl.mockResolvedValue("data:image/png;base64,AAA");
+    notifyOk.mockReset();
   });
 
   it("link chia sẻ là <origin>/s/<slug>", async () => {
@@ -174,5 +180,16 @@ describe("Step4Demo", () => {
     await userEvent.click(screen.getByRole("button", { name: /Mã QR/ }));
 
     expect(toQrDataUrl).toHaveBeenCalledWith(expectedShareUrl());
+  });
+
+  it("sinh mã QR xong thì báo toast", async () => {
+    renderStep4();
+    await screen.findByText(expectedShareUrl());
+
+    await userEvent.click(screen.getByRole("button", { name: /Mã QR/ }));
+
+    await waitFor(() =>
+      expect(notifyOk).toHaveBeenCalledWith("Đã sinh mã QR — chiếu lên là quét được"),
+    );
   });
 });
