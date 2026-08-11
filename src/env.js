@@ -1,5 +1,5 @@
 import { createEnv } from "@t3-oss/env-nextjs";
-import { clientSchema, serverSchema } from "./env-schema.ts";
+import { clientSchema, serverSchema } from "./env-schema.js";
 
 export const env = createEnv({
   server: serverSchema.shape,
