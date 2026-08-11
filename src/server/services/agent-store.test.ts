@@ -285,4 +285,34 @@ describe("saveBuildArtifacts", () => {
     expect(saved.degraded).toBe(true);
     expect(saved.fixtureKey).toBe("senspa");
   });
+
+  it("ưu tiên brand.industry khi brand.industry và industry cấp cao nhất khác nhau", async () => {
+    const agent = await persistCrawl(db, {
+      sourceUrl: "https://senspa.vn",
+      mode: "live",
+      crawl: CRAWL,
+    });
+    const saved = await saveBuildArtifacts(db, agent.id, {
+      ...BUILD,
+      brand: { ...BUILD.brand, industry: "spa" },
+      industry: "wellness",
+    });
+
+    expect(saved.industry).toBe("spa");
+  });
+
+  it("dùng industry cấp cao nhất khi brand.industry là null", async () => {
+    const agent = await persistCrawl(db, {
+      sourceUrl: "https://senspa.vn",
+      mode: "live",
+      crawl: CRAWL,
+    });
+    const saved = await saveBuildArtifacts(db, agent.id, {
+      ...BUILD,
+      brand: { ...BUILD.brand, industry: null },
+      industry: "wellness",
+    });
+
+    expect(saved.industry).toBe("wellness");
+  });
 });

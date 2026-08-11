@@ -142,7 +142,11 @@ export async function saveBuildArtifacts(
     brandColor: build.brand.color,
     brandLogoLetter: build.brand.logoLetter,
     brandLogoEmoji: build.brand.logo,
-    industry: build.industry,
+    // buildResponse carries `industry` in two places (nested `brand.industry` and a
+    // top-level `industry`); the backend never guarantees they agree. `brand.industry`
+    // wins to stay consistent with how the crawl path (source.ts, fixture-source.ts)
+    // reads industry — do not "simplify" this back to `build.industry` alone.
+    industry: build.brand.industry ?? build.industry,
     status: "built",
   });
 }
