@@ -18,7 +18,7 @@ export function Hero() {
             <h1 className="mt-5 mb-4 text-[46px] leading-[1.06] font-extrabold tracking-[-0.03em] text-balance max-[900px]:text-[38px] max-[640px]:text-[31px]">
               Dán website của bạn.
               <br />
-              <span className="bg-gradient-to-r from-fci-500 to-fci-300 bg-clip-text text-transparent">
+              <span className="bg-linear-120 from-fci-500 to-fci-300 bg-clip-text text-transparent">
                 30 phút sau có AI Agent chạy được.
               </span>
             </h1>

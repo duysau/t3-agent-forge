@@ -10,7 +10,7 @@ export function EvalSummary({ summary }: { summary: EvalResult["summary"] }) {
   ];
 
   return (
-    <div className="mt-6 grid items-center gap-6 rounded-2xl bg-gradient-to-br from-fci-800 to-fci-600 px-7 py-6 text-white min-[900px]:grid-cols-[auto_1fr] max-[900px]:text-center">
+    <div className="mt-6 grid items-center gap-6 rounded-2xl bg-linear-135 from-fci-800 to-fci-600 px-7 py-6 text-white min-[900px]:grid-cols-[auto_1fr] max-[900px]:text-center">
       <div className="max-[900px]:mx-auto">
         <ScoreRing percent={summary.passRate} label="pass rate" />
       </div>

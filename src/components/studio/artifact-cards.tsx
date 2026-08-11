@@ -21,7 +21,7 @@ export function ArtifactCards({
             <div className="flex items-center gap-3">
               <span
                 data-testid="persona-avatar"
-                className="grid size-[52px] shrink-0 place-items-center rounded-full bg-gradient-to-br from-fci-300 to-fci-600 text-xl font-extrabold text-white"
+                className="grid size-[52px] shrink-0 place-items-center rounded-full bg-linear-135 from-fci-300 to-fci-600 text-xl font-extrabold text-white"
               >
                 {persona.avatarLetter}
               </span>
