@@ -6,6 +6,8 @@ import { Button } from "~/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "~/components/ui/card";
 import { BrandBar } from "~/components/demo/brand-bar";
 import { ChatDemo } from "~/components/demo/chat-demo";
+import { NotBuiltNotice } from "~/components/demo/not-built-notice";
+import { isAgentBuilt } from "~/lib/agent-status";
 import { api } from "~/trpc/react";
 import { toQrDataUrl } from "~/lib/qr";
 import { ShareBox } from "./share-box";
@@ -69,7 +71,12 @@ export function Step4Demo({ slug, onBack }: { slug: string; onBack: () => void }
             product={d.product}
             degraded={d.degraded}
           />
-          <ChatDemo slug={slug} suggested={d.kbFacts.slice(0, 3)} />
+          {/* Cùng quy tắc với trang công khai: chưa dựng thì không có ô chat. */}
+          {isAgentBuilt(d.status) ? (
+            <ChatDemo slug={slug} suggested={d.kbFacts.slice(0, 3)} />
+          ) : (
+            <NotBuiltNotice />
+          )}
         </div>
 
         <ShareBox

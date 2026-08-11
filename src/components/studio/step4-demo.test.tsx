@@ -132,6 +132,16 @@ describe("Step4Demo", () => {
     expect(screen.queryByText(/Đã sao chép/)).not.toBeInTheDocument();
   });
 
+  it("agent chưa dựng thì hiện trạng thái thật thay vì ô chat, link vẫn chia sẻ được", async () => {
+    demoQuery.data = { ...PAYLOAD, status: "draft" };
+
+    renderStep4();
+
+    expect(await screen.findByTestId("not-built-notice")).toBeInTheDocument();
+    expect(screen.queryByPlaceholderText(/Nhập câu hỏi/)).not.toBeInTheDocument();
+    expect(screen.getByText(expectedShareUrl())).toBeInTheDocument();
+  });
+
   it("mã QR mã hoá đúng cùng một link đang hiển thị và được sao chép", async () => {
     const writeText = vi.fn().mockResolvedValue(undefined);
     Object.assign(navigator, { clipboard: { writeText } });

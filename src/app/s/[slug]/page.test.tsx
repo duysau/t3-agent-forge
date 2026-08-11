@@ -101,6 +101,37 @@ describe("DemoPage", () => {
     expect(screen.queryByText("Kết quả kiểm định")).not.toBeInTheDocument();
   });
 
+  /**
+   * `demo.ts` cố tình phục vụ agent chưa dựng và mang theo `status` chính vì lúc
+   * này. Chia sẻ link ngay sau Bước 1 mà hiện ô chat là gắn một ô chat vào agent
+   * có system prompt rỗng — hứa một thứ chưa tồn tại.
+   */
+  it("agent chưa dựng thì hiện trạng thái thật, KHÔNG hiện ô chat", async () => {
+    demoBySlug.mockResolvedValueOnce({
+      ...PAYLOAD,
+      status: "draft",
+      evalSummary: null,
+      evalResults: [],
+    });
+
+    render(await loadPage());
+
+    expect(screen.getByTestId("not-built-notice")).toBeInTheDocument();
+    expect(screen.getByText(/chưa dựng xong/i)).toBeInTheDocument();
+    expect(screen.queryByPlaceholderText(/Nhập câu hỏi/)).not.toBeInTheDocument();
+    // Brand bar vẫn hiện: trang mở được là điểm mạnh, chỉ ô chat mới là lời hứa sai.
+    expect(screen.getByText("Suối Khoáng Nóng")).toBeInTheDocument();
+  });
+
+  it("agent đã dựng nhưng chưa kiểm định thì vẫn có ô chat", async () => {
+    demoBySlug.mockResolvedValueOnce({ ...PAYLOAD, status: "built", evalSummary: null });
+
+    render(await loadPage());
+
+    expect(screen.getByPlaceholderText(/Nhập câu hỏi/)).toBeInTheDocument();
+    expect(screen.queryByTestId("not-built-notice")).not.toBeInTheDocument();
+  });
+
   it("TRPCError NOT_FOUND thì gọi notFound(), không tự vẽ trang", async () => {
     demoBySlug.mockRejectedValueOnce(
       new TRPCError({ code: "NOT_FOUND", message: "Không tìm thấy agent" }),

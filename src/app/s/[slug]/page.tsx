@@ -4,7 +4,9 @@ import { TRPCError } from "@trpc/server";
 import type { Metadata } from "next";
 import { BrandBar } from "~/components/demo/brand-bar";
 import { ChatDemo } from "~/components/demo/chat-demo";
+import { NotBuiltNotice } from "~/components/demo/not-built-notice";
 import { EvalSummary } from "~/components/studio/eval-summary";
+import { isAgentBuilt } from "~/lib/agent-status";
 import { api } from "~/trpc/server";
 import type { DemoPayload } from "~/server/api/routers/demo";
 
@@ -84,7 +86,17 @@ export default async function DemoPage({ params }: { params: Promise<{ slug: str
           product={d.product}
           degraded={d.degraded}
         />
-        <ChatDemo slug={slug} suggested={d.kbFacts.slice(0, 3)} />
+        {/*
+          `demo.bySlug` cố tình phục vụ cả agent chưa dựng, và `status` đi kèm
+          payload chính vì lúc này: một link chia sẻ ngay sau Bước 1 mở ra một ô
+          chat gắn vào agent có system prompt rỗng. Hiện trạng thái thật thay vì
+          hứa một thứ chưa tồn tại.
+        */}
+        {isAgentBuilt(d.status) ? (
+          <ChatDemo slug={slug} suggested={d.kbFacts.slice(0, 3)} />
+        ) : (
+          <NotBuiltNotice />
+        )}
       </div>
 
       {d.evalSummary && <EvalSummary summary={d.evalSummary} />}
