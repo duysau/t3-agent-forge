@@ -1,0 +1,122 @@
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { makeTestDb } from "~/test/db";
+import type { Db } from "~/server/db/types";
+import { getAgentAggregate, persistCrawl, replaceKbChunks } from "./agent-store";
+
+let db: Db;
+let close: () => Promise<void>;
+
+const CRAWL = {
+  sessionId: "a73534289394",
+  pages: [
+    { url: "https://senspa.vn", title: "Sen Spa", status: "ok" },
+    { url: "https://senspa.vn/bang-gia", title: "Bảng giá", status: "ok" },
+  ],
+  kbFacts: ["Massage 60 phút: 350.000đ"],
+  chunks: ["chunk A", "chunk B", "chunk C"],
+  totalChunks: 3,
+};
+
+beforeEach(async () => {
+  ({ db, close } = await makeTestDb());
+});
+afterEach(async () => {
+  await close();
+});
+
+describe("persistCrawl", () => {
+  it("ghi agent, pages và chunks trong một lần", async () => {
+    const agent = await persistCrawl(db, {
+      sourceUrl: "https://senspa.vn",
+      mode: "live",
+      crawl: CRAWL,
+    });
+
+    expect(agent.pythonSessionId).toBe("a73534289394");
+    expect(agent.kbFacts).toEqual(["Massage 60 phút: 350.000đ"]);
+
+    const agg = await getAgentAggregate(db, agent.slug);
+    expect(agg?.pages).toHaveLength(2);
+    expect(agg?.chunks).toHaveLength(3);
+  });
+
+  it("giữ thứ tự chunks bằng cột ord", async () => {
+    const agent = await persistCrawl(db, {
+      sourceUrl: "https://senspa.vn",
+      mode: "live",
+      crawl: CRAWL,
+    });
+    const agg = await getAgentAggregate(db, agent.slug);
+    expect(agg?.chunks.map((c) => c.content)).toEqual(["chunk A", "chunk B", "chunk C"]);
+  });
+
+  it("gán sourceUrl của chunk là URL gốc và source là web", async () => {
+    const agent = await persistCrawl(db, {
+      sourceUrl: "https://senspa.vn",
+      mode: "live",
+      crawl: CRAWL,
+    });
+    const agg = await getAgentAggregate(db, agent.slug);
+    expect(agg?.chunks[0]?.source).toBe("web");
+    expect(agg?.chunks[0]?.sourceUrl).toBe("https://senspa.vn");
+  });
+
+  it("ghi mode fixture kèm fixtureKey và degraded", async () => {
+    const agent = await persistCrawl(db, {
+      sourceUrl: "https://senspa.vn",
+      mode: "fixture",
+      fixtureKey: "senspa",
+      degraded: true,
+      crawl: CRAWL,
+    });
+    expect(agent.mode).toBe("fixture");
+    expect(agent.fixtureKey).toBe("senspa");
+    expect(agent.degraded).toBe(true);
+  });
+
+  it("crawl không có chunks vẫn tạo được agent", async () => {
+    const agent = await persistCrawl(db, {
+      sourceUrl: "https://trong.vn",
+      mode: "live",
+      crawl: { ...CRAWL, chunks: [], totalChunks: 0, pages: [] },
+    });
+    const agg = await getAgentAggregate(db, agent.slug);
+    expect(agg?.chunks).toHaveLength(0);
+  });
+});
+
+describe("replaceKbChunks", () => {
+  it("thay thế toàn bộ chunks, không chèn thêm", async () => {
+    const agent = await persistCrawl(db, {
+      sourceUrl: "https://senspa.vn",
+      mode: "live",
+      crawl: CRAWL,
+    });
+
+    const written = await replaceKbChunks(db, agent.id, [
+      { content: "web 1", source: "web", sourceUrl: "https://senspa.vn" },
+      { content: "pdf 1", source: "pdf", sourceUrl: null },
+    ]);
+
+    expect(written).toBe(2);
+    const agg = await getAgentAggregate(db, agent.slug);
+    expect(agg?.chunks).toHaveLength(2);
+    expect(agg?.chunks.map((c) => c.source)).toEqual(["web", "pdf"]);
+  });
+
+  it("không ảnh hưởng chunks của agent khác", async () => {
+    const a = await persistCrawl(db, { sourceUrl: "https://a.vn", mode: "live", crawl: CRAWL });
+    const b = await persistCrawl(db, { sourceUrl: "https://b.vn", mode: "live", crawl: CRAWL });
+
+    await replaceKbChunks(db, a.id, [{ content: "chỉ của a", source: "web", sourceUrl: null }]);
+
+    expect((await getAgentAggregate(db, a.slug))?.chunks).toHaveLength(1);
+    expect((await getAgentAggregate(db, b.slug))?.chunks).toHaveLength(3);
+  });
+});
+
+describe("getAgentAggregate", () => {
+  it("trả undefined với slug không tồn tại", async () => {
+    expect(await getAgentAggregate(db, "khongcogi12")).toBeUndefined();
+  });
+});

@@ -1,0 +1,104 @@
+import { asc, eq } from "drizzle-orm";
+import { createAgent, getAgentBySlug, updateAgent } from "~/server/db/queries/agents";
+import { crawledPages, kbChunks } from "~/server/db/schema";
+import type { AgentRow, CrawledPageRow, Db, KbChunkRow } from "~/server/db/types";
+import type { CrawlResult } from "~/server/agentforge/schemas";
+import type { FixtureKey } from "~/lib/fixtures";
+
+export interface PersistCrawlInput {
+  sourceUrl: string;
+  mode: "live" | "fixture";
+  fixtureKey?: FixtureKey;
+  degraded?: boolean;
+  crawl: CrawlResult;
+}
+
+export interface AgentAggregate {
+  agent: AgentRow;
+  pages: CrawledPageRow[];
+  chunks: KbChunkRow[];
+}
+
+export async function persistCrawl(db: Db, input: PersistCrawlInput): Promise<AgentRow> {
+  const created = await createAgent(db, {
+    sourceUrl: input.sourceUrl,
+    pythonSessionId: input.crawl.sessionId,
+    mode: input.mode,
+    fixtureKey: input.fixtureKey,
+  });
+
+  if (input.crawl.pages.length > 0) {
+    await db.insert(crawledPages).values(
+      input.crawl.pages.map((p, i) => ({
+        agentId: created.id,
+        url: p.url,
+        title: p.title,
+        status: p.status,
+        ord: i,
+      })),
+    );
+  }
+
+  if (input.crawl.chunks.length > 0) {
+    await db.insert(kbChunks).values(
+      input.crawl.chunks.map((content, i) => ({
+        agentId: created.id,
+        content,
+        source: "web" as const,
+        sourceUrl: input.sourceUrl,
+        ord: i,
+      })),
+    );
+  }
+
+  return updateAgent(db, created.id, {
+    kbFacts: input.crawl.kbFacts,
+    degraded: input.degraded ?? false,
+  });
+}
+
+/**
+ * Thay thế toàn bộ chunks của agent. Bản chụp KB là ảnh của cả collection
+ * Chroma, nên chèn thêm sẽ nhân bản phần web — luôn phải thay thế.
+ */
+export async function replaceKbChunks(
+  db: Db,
+  agentId: string,
+  chunks: Array<{ content: string; source: "web" | "pdf"; sourceUrl: string | null }>,
+): Promise<number> {
+  await db.delete(kbChunks).where(eq(kbChunks.agentId, agentId));
+  if (chunks.length === 0) return 0;
+  await db.insert(kbChunks).values(
+    chunks.map((c, i) => ({
+      agentId,
+      content: c.content,
+      source: c.source,
+      sourceUrl: c.sourceUrl,
+      ord: i,
+    })),
+  );
+  return chunks.length;
+}
+
+export async function getAgentAggregate(
+  db: Db,
+  slug: string,
+): Promise<AgentAggregate | undefined> {
+  const agent = await getAgentBySlug(db, slug);
+  if (!agent) return undefined;
+
+  const [pages, chunks] = await Promise.all([
+    db
+      .select()
+      .from(crawledPages)
+      .where(eq(crawledPages.agentId, agent.id))
+      .orderBy(asc(crawledPages.ord)),
+    db
+      .select()
+      .from(kbChunks)
+      .where(eq(kbChunks.agentId, agent.id))
+      .orderBy(asc(kbChunks.ord)),
+  ]);
+
+  return { agent, pages, chunks };
+}
