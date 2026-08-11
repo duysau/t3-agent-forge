@@ -3,7 +3,13 @@ import { getTableName, type Table } from "drizzle-orm";
 import { makeTestDb } from "~/test/db";
 import { agents, crawledPages, kbChunks } from "~/server/db/schema";
 import type { Db } from "~/server/db/types";
-import { getAgentAggregate, persistCrawl, replaceKbChunks } from "./agent-store";
+import {
+  getAgentAggregate,
+  getAgentAggregateById,
+  persistCrawl,
+  replaceKbChunks,
+  saveBuildArtifacts,
+} from "./agent-store";
 
 /**
  * Bọc một Db thật bằng Proxy: khi `insert` được gọi (kể cả insert gọi từ
@@ -195,5 +201,88 @@ describe("replaceKbChunks", () => {
 describe("getAgentAggregate", () => {
   it("trả undefined với slug không tồn tại", async () => {
     expect(await getAgentAggregate(db, "khongcogi12")).toBeUndefined();
+  });
+});
+
+describe("getAgentAggregateById", () => {
+  it("trả cùng dữ liệu như getAgentAggregate nhưng tra theo id", async () => {
+    const agent = await persistCrawl(db, {
+      sourceUrl: "https://senspa.vn",
+      mode: "live",
+      crawl: CRAWL,
+    });
+    const bySlug = await getAgentAggregate(db, agent.slug);
+    const byId = await getAgentAggregateById(db, agent.id);
+    expect(byId?.agent.id).toBe(bySlug?.agent.id);
+    expect(byId?.chunks.map((c) => c.content)).toEqual(bySlug?.chunks.map((c) => c.content));
+  });
+
+  it("trả undefined với id không tồn tại", async () => {
+    expect(
+      await getAgentAggregateById(db, "00000000-0000-0000-0000-000000000000"),
+    ).toBeUndefined();
+  });
+});
+
+describe("saveBuildArtifacts", () => {
+  const BUILD = {
+    brand: {
+      name: "Sen Spa",
+      logo: "🌸",
+      logoLetter: "S",
+      color: "#203ADC",
+      industry: "spa",
+    },
+    persona: {
+      name: "Sen",
+      role: "Nhân viên tư vấn",
+      description: "Nhẹ nhàng, đúng bảng giá.",
+      avatarLetter: "S",
+    },
+    systemPrompt: "Bạn là Sen, nhân viên tư vấn của Sen Spa.",
+    guardrails: ["Không cam kết điều trị y khoa", "Không bịa giá"],
+    industry: "spa",
+  };
+
+  it("lưu persona, system prompt, guardrails và đẩy status sang built", async () => {
+    const agent = await persistCrawl(db, {
+      sourceUrl: "https://senspa.vn",
+      mode: "live",
+      crawl: CRAWL,
+    });
+    const saved = await saveBuildArtifacts(db, agent.id, BUILD);
+
+    expect(saved.status).toBe("built");
+    expect(saved.systemPrompt).toBe(BUILD.systemPrompt);
+    expect(saved.guardrails).toEqual(BUILD.guardrails);
+    expect(saved.persona).toEqual(BUILD.persona);
+  });
+
+  it("cập nhật brand từ kết quả build, ghi đè brand rỗng của crawl", async () => {
+    const agent = await persistCrawl(db, {
+      sourceUrl: "https://senspa.vn",
+      mode: "live",
+      crawl: CRAWL,
+    });
+    const saved = await saveBuildArtifacts(db, agent.id, BUILD);
+
+    expect(saved.brandName).toBe("Sen Spa");
+    expect(saved.brandLogoLetter).toBe("S");
+    expect(saved.brandLogoEmoji).toBe("🌸");
+    expect(saved.industry).toBe("spa");
+  });
+
+  it("không chạm tới degraded hay fixtureKey", async () => {
+    const agent = await persistCrawl(db, {
+      sourceUrl: "https://senspa.vn",
+      mode: "fixture",
+      fixtureKey: "senspa",
+      degraded: true,
+      crawl: CRAWL,
+    });
+    const saved = await saveBuildArtifacts(db, agent.id, BUILD);
+
+    expect(saved.degraded).toBe(true);
+    expect(saved.fixtureKey).toBe("senspa");
   });
 });
