@@ -98,4 +98,43 @@ describe("EvalTestList", () => {
     await userEvent.click(filters().getByRole("button", { name: /Tất cả/ }));
     expect(screen.getAllByTestId("eval-row")).toHaveLength(20);
   });
+
+  /**
+   * Trạng thái gập phải neo vào chính bài kiểm định, không vào vị trí trong danh
+   * sách đã lọc — nếu neo vào vị trí thì đổi filter sẽ mở sẵn một bài mà người
+   * dùng chưa từng bấm, tức là phơi ra câu trả lời họ không yêu cầu xem.
+   */
+  it("đổi filter không kéo trạng thái mở sang bài khác", async () => {
+    render(<EvalTestList results={RESULTS} />);
+    const grounded1 = screen.getByRole("button", { name: /Grounded 1/ });
+    await userEvent.click(grounded1);
+    expect(grounded1).toHaveAttribute("aria-expanded", "true");
+
+    await userEvent.click(filters().getByRole("button", { name: /Cần bổ sung KB/ }));
+
+    const trap1 = screen.getByRole("button", { name: /Trap 1/ });
+    expect(trap1).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByText("từ chối đúng")).not.toBeInTheDocument();
+  });
+
+  it("mở một bài trong filter rồi về Tất cả thì đúng bài đó còn mở", async () => {
+    render(<EvalTestList results={RESULTS} />);
+    await userEvent.click(filters().getByRole("button", { name: /Câu bẫy/ }));
+    await userEvent.click(screen.getByRole("button", { name: /Trap 1/ }));
+    await userEvent.click(filters().getByRole("button", { name: /Tất cả/ }));
+
+    expect(screen.getByRole("button", { name: /Trap 1/ })).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByRole("button", { name: /Grounded 1/ })).toHaveAttribute(
+      "aria-expanded",
+      "false",
+    );
+  });
+
+  it("số thứ tự giữ đúng vị trí thật trong cả 20 bài khi đang lọc", async () => {
+    render(<EvalTestList results={RESULTS} />);
+    await userEvent.click(filters().getByRole("button", { name: /Câu bẫy/ }));
+    const rows = screen.getAllByTestId("eval-row");
+    expect(within(rows[0]!).getByText("09")).toBeInTheDocument();
+    expect(within(rows[5]!).getByText("14")).toBeInTheDocument();
+  });
 });
