@@ -15,6 +15,8 @@ import {
   type DocumentResult,
   type EvalResult,
   type KbSnapshot,
+  type RestoreBrand,
+  type RestorePersona,
 } from "./schemas";
 import { AgentForgeError, extractDetail, kindFromStatus } from "./errors";
 import { logBoundary } from "./log";
@@ -44,8 +46,11 @@ export interface RestoreInput {
   guardrails: string[];
   chunks: string[];
   kbFacts: string[];
-  brand: Record<string, unknown>;
-  persona: Record<string, unknown>;
+  // Kiểu thật, không `Record<string, unknown>`: hai field này đi thẳng vào body
+  // JSON nên chúng PHẢI ở wire shape snake_case. Khi còn là Record, một persona
+  // camelCase lọt qua compile và chỉ hỏng lúc chạy, ở chỗ không ai nhìn.
+  brand: RestoreBrand;
+  persona: RestorePersona | null;
   url: string;
 }
 

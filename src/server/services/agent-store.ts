@@ -1,8 +1,13 @@
 import { asc, eq } from "drizzle-orm";
-import { createAgent, getAgentBySlug, updateAgent } from "~/server/db/queries/agents";
+import {
+  createAgent,
+  getAgentById,
+  getAgentBySlug,
+  updateAgent,
+} from "~/server/db/queries/agents";
 import { crawledPages, kbChunks } from "~/server/db/schema";
 import type { AgentRow, CrawledPageRow, Db, KbChunkRow } from "~/server/db/types";
-import type { CrawlResult } from "~/server/agentforge/schemas";
+import type { BuildResult, CrawlResult } from "~/server/agentforge/schemas";
 import type { FixtureKey } from "~/lib/fixtures";
 
 export interface PersistCrawlInput {
@@ -84,13 +89,7 @@ export async function replaceKbChunks(
   });
 }
 
-export async function getAgentAggregate(
-  db: Db,
-  slug: string,
-): Promise<AgentAggregate | undefined> {
-  const agent = await getAgentBySlug(db, slug);
-  if (!agent) return undefined;
-
+async function loadChildren(db: Db, agent: AgentRow): Promise<AgentAggregate> {
   const [pages, chunks] = await Promise.all([
     db
       .select()
@@ -103,6 +102,51 @@ export async function getAgentAggregate(
       .where(eq(kbChunks.agentId, agent.id))
       .orderBy(asc(kbChunks.ord)),
   ]);
-
   return { agent, pages, chunks };
+}
+
+export async function getAgentAggregate(
+  db: Db,
+  slug: string,
+): Promise<AgentAggregate | undefined> {
+  const agent = await getAgentBySlug(db, slug);
+  if (!agent) return undefined;
+  return loadChildren(db, agent);
+}
+
+export async function getAgentAggregateById(
+  db: Db,
+  agentId: string,
+): Promise<AgentAggregate | undefined> {
+  const agent = await getAgentById(db, agentId);
+  if (!agent) return undefined;
+  return loadChildren(db, agent);
+}
+
+/**
+ * Ghi artifacts của `/api/build` xuống DB. Brand từ build ghi đè brand lấy lúc
+ * crawl, vì build gọi lại `branding.extract_brand()` với KB đầy đủ nên kết quả
+ * tốt hơn. **Không** chạm `degraded` hay `fixtureKey`: hai field đó ghi lại việc
+ * đã xảy ra ở bước crawl, build không có quyền viết lại lịch sử đó.
+ */
+export async function saveBuildArtifacts(
+  db: Db,
+  agentId: string,
+  build: BuildResult,
+): Promise<AgentRow> {
+  return updateAgent(db, agentId, {
+    persona: build.persona,
+    systemPrompt: build.systemPrompt,
+    guardrails: build.guardrails,
+    brandName: build.brand.name,
+    brandColor: build.brand.color,
+    brandLogoLetter: build.brand.logoLetter,
+    brandLogoEmoji: build.brand.logo,
+    // buildResponse carries `industry` in two places (nested `brand.industry` and a
+    // top-level `industry`); the backend never guarantees they agree. `brand.industry`
+    // wins to stay consistent with how the crawl path (source.ts, fixture-source.ts)
+    // reads industry — do not "simplify" this back to `build.industry` alone.
+    industry: build.brand.industry ?? build.industry,
+    status: "built",
+  });
 }

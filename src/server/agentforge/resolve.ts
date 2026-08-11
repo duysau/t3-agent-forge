@@ -3,7 +3,12 @@ import { isFallbackWorthy } from "./errors";
 import { createFixtureSource } from "./fixture-source";
 import { logBoundary } from "./log";
 import { createLiveSource, type AgentForgeSource } from "./source";
-import { DEFAULT_FIXTURE_KEY, fixtureKeyForUrl, type FixtureKey } from "~/lib/fixtures";
+import {
+  DEFAULT_FIXTURE_KEY,
+  fixtureKeyForUrl,
+  isFixtureKey,
+  type FixtureKey,
+} from "~/lib/fixtures";
 
 export function resolveSource(input: {
   mode: "live" | "fixture";
@@ -15,6 +20,27 @@ export function resolveSource(input: {
     return createFixtureSource(input.fixtureKey ?? DEFAULT_FIXTURE_KEY);
   }
   return createLiveSource(createClient({ baseUrl: input.baseUrl, fetchImpl: input.fetchImpl }));
+}
+
+/**
+ * Nguồn dữ liệu cho một agent ĐÃ TỒN TẠI: quyết định bởi `mode`/`fixtureKey` đã
+ * lưu trên row, không phải bởi `ctx.source`.
+ *
+ * `createTRPCContext` luôn dựng `ctx.source` ở chế độ live. Người dùng chọn
+ * "kịch bản mẫu (chạy offline)" ở Bước 1 và `source.crawl` ghi lựa chọn đó xuống
+ * DB — nếu build/eval/chat vẫn dùng `ctx.source`, đúng con đường tồn tại VÌ
+ * backend chết lại chết ở Bước 3. Cùng lý lẽ với `product` trong `agent.build`:
+ * hình thái agent đọc từ DB, không nhận lại từ client và không đoán từ context.
+ *
+ * `live` là nguồn dùng khi row nói `mode = "live"` — truyền `ctx.source` vào để
+ * test vẫn ghi đè được từng method.
+ */
+export function sourceForAgent(
+  agent: { mode: string; fixtureKey: string | null },
+  live: AgentForgeSource,
+): AgentForgeSource {
+  if (agent.mode !== "fixture") return live;
+  return createFixtureSource(isFixtureKey(agent.fixtureKey) ? agent.fixtureKey : DEFAULT_FIXTURE_KEY);
 }
 
 export interface WithFallbackOptions {

@@ -1,33 +1,25 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { TRPCError } from "@trpc/server";
-import { makeTestDb } from "~/test/db";
-import type { Db } from "~/server/db/types";
-import { createCallerFactory } from "~/server/api/trpc";
-import { appRouter } from "~/server/api/root";
 import { createFixtureSource } from "~/server/agentforge/fixture-source";
 import { AgentForgeError } from "~/server/agentforge/errors";
 import { BRAND_FALLBACK_COLOR } from "~/server/agentforge/schemas";
 import type { AgentForgeSource } from "~/server/agentforge/source";
+import { makeHarness, type Harness } from "~/test/harness";
 
 const GENERIC_ERROR_MESSAGE = "Hệ thống gặp lỗi không mong muốn. Vui lòng thử lại.";
 
-let db: Db;
-let close: () => Promise<void>;
-
-function caller(source: AgentForgeSource, fallbackEnabled = true) {
-  return createCallerFactory(appRouter)({ db, source, fallbackEnabled });
-}
+let h: Harness;
 
 beforeEach(async () => {
-  ({ db, close } = await makeTestDb());
+  h = await makeHarness();
 });
 afterEach(async () => {
-  await close();
+  await h.close();
 });
 
 describe("source.crawl", () => {
   it("crawl xong trả slug và ghi đủ dữ liệu xuống DB", async () => {
-    const api = caller(createFixtureSource("senspa", { delayMs: 0 }));
+    const api = h.caller({ source: createFixtureSource("senspa", { delayMs: 0 }) });
 
     const out = await api.source.crawl({ url: "https://senspa.vn", mode: "live" });
 
@@ -42,14 +34,14 @@ describe("source.crawl", () => {
   });
 
   it("trả brand cùng lượt crawl để UI không phải gọi thêm", async () => {
-    const api = caller(createFixtureSource("senspa", { delayMs: 0 }));
+    const api = h.caller({ source: createFixtureSource("senspa", { delayMs: 0 }) });
     const out = await api.source.crawl({ url: "https://senspa.vn", mode: "live" });
     expect(out.brand.name).toBe("Sen Spa");
     expect(out.brand.color).toBe("#203ADC");
   });
 
   it("mode fixture ghi fixtureKey", async () => {
-    const api = caller(createFixtureSource("bepnha", { delayMs: 0 }));
+    const api = h.caller({ source: createFixtureSource("bepnha", { delayMs: 0 }) });
     const out = await api.source.crawl({
       url: "https://bepnha.vn",
       mode: "fixture",
@@ -72,7 +64,7 @@ describe("source.crawl", () => {
       kind: "live",
       brand: vi.fn().mockRejectedValue(new AgentForgeError("upstream", "brand API chết", 502)),
     };
-    const api = caller(source);
+    const api = h.caller({ source });
 
     const out = await api.source.crawl({ url: "https://kfc.vn", mode: "live" });
 
@@ -98,7 +90,7 @@ describe("source.crawl", () => {
       crawl: vi.fn().mockRejectedValue(new AgentForgeError("upstream", "Cloudflare chặn", 502)),
       brand: vi.fn().mockRejectedValue(new AgentForgeError("upstream", "chết", 502)),
     };
-    const api = caller(dead);
+    const api = h.caller({ source: dead });
 
     const out = await api.source.crawl({ url: "https://senspa.vn", mode: "live" });
 
@@ -116,7 +108,7 @@ describe("source.crawl", () => {
     };
 
     await expect(
-      caller(bad).source.crawl({ url: "https://x.vn", mode: "live" }),
+      h.caller({ source: bad }).source.crawl({ url: "https://x.vn", mode: "live" }),
     ).rejects.toThrow(/URL không hợp lệ/);
   });
 
@@ -130,7 +122,8 @@ describe("source.crawl", () => {
     // fallbackEnabled = false: kind "upstream" thuộc FALLBACK_KINDS, nếu bật
     // fallback thì lỗi sẽ bị withFallback nuốt và tụt hạng thay vì nổi lên
     // tới trpc error boundary — tắt fallback để ép lỗi thật sự đi qua mapErrors.
-    const err: unknown = await caller(bad, false)
+    const err: unknown = await h
+      .caller({ source: bad, fallbackEnabled: false })
       .source.crawl({ url: "https://x.vn", mode: "live" })
       .then(() => null, (e: unknown) => e);
 
@@ -146,7 +139,8 @@ describe("source.crawl", () => {
     };
 
     // Cùng lý do tắt fallback như trên: "timeout" cũng thuộc FALLBACK_KINDS.
-    const err: unknown = await caller(bad, false)
+    const err: unknown = await h
+      .caller({ source: bad, fallbackEnabled: false })
       .source.crawl({ url: "https://x.vn", mode: "live" })
       .then(() => null, (e: unknown) => e);
 
@@ -161,7 +155,8 @@ describe("source.crawl", () => {
       crawl: vi.fn().mockRejectedValue(new AgentForgeError("bad_request", "URL không hợp lệ", 400)),
     };
 
-    const err: unknown = await caller(bad)
+    const err: unknown = await h
+      .caller({ source: bad })
       .source.crawl({ url: "https://x.vn", mode: "live" })
       .then(() => null, (e: unknown) => e);
 
@@ -179,7 +174,8 @@ describe("source.crawl", () => {
         .mockRejectedValue(new AgentForgeError("contract", "Backend đổi hình dạng response", null)),
     };
 
-    const err: unknown = await caller(bad)
+    const err: unknown = await h
+      .caller({ source: bad })
       .source.crawl({ url: "https://x.vn", mode: "live" })
       .then(() => null, (e: unknown) => e);
 
@@ -192,7 +188,7 @@ describe("source.crawl", () => {
   });
 
   it("từ chối URL không đúng dạng ngay ở input schema", async () => {
-    const api = caller(createFixtureSource("senspa", { delayMs: 0 }));
+    const api = h.caller({ source: createFixtureSource("senspa", { delayMs: 0 }) });
 
     const err: unknown = await api.source
       .crawl({ url: "khong-phai-url", mode: "live" })
@@ -213,7 +209,8 @@ describe("source.crawl", () => {
       crawl: vi.fn().mockRejectedValue(new Error("connect ECONNREFUSED 127.0.0.1:5432")),
     };
 
-    const err: unknown = await caller(broken)
+    const err: unknown = await h
+      .caller({ source: broken })
       .source.crawl({ url: "https://x.vn", mode: "live" })
       .then(() => null, (e: unknown) => e);
 
@@ -229,7 +226,7 @@ describe("source.crawl", () => {
 
 describe("source.bySlug", () => {
   it("slug không tồn tại thì ném NOT_FOUND", async () => {
-    const api = caller(createFixtureSource("senspa", { delayMs: 0 }));
+    const api = h.caller({ source: createFixtureSource("senspa", { delayMs: 0 }) });
     await expect(api.source.bySlug({ slug: "khongcogi12" })).rejects.toThrow(/NOT_FOUND|không tìm/i);
   });
 });
