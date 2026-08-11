@@ -1,4 +1,5 @@
 import { act, render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { StrictMode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { EvalResult, Persona } from "~/server/agentforge/schemas";
@@ -255,6 +256,68 @@ describe("Step3Build", () => {
     expect(buildMutation.mutateAsync).toHaveBeenCalledTimes(1);
     expect(evaluateMutation.mutateAsync).toHaveBeenCalledTimes(1);
     expect(screen.getByText(/hiện lại kết quả đã lưu/i)).toBeInTheDocument();
+  });
+
+  /**
+   * Vòng tròn khép kín của thiết kế "dựng lại thì ẩn bảng điểm cũ".
+   *
+   * Không có nút này, một agent đã có bảng điểm KHÔNG CÒN CÁCH NÀO dựng lại được từ
+   * giao diện — auto-run bị chặn đúng đắn, còn "Thử lại" chỉ render trong khối lỗi.
+   * Nghĩa là cả thiết kế phía server (status về `built`, `agent.evalRun` và
+   * `demo.bySlug` ngừng trả bảng điểm đã chấm cho một prompt không còn tồn tại, hàng
+   * cũ giữ lại chứ không xoá) không còn đường nào chạm tới từ sản phẩm.
+   *
+   * Nên test này không kiểm "nút gọi build" — nó kiểm vòng tròn: hydrate một agent
+   * đã có bảng điểm, bấm dựng lại, và bảng điểm cũ thôi được TRÌNH BÀY trong khi dữ
+   * liệu đã lưu vẫn còn nguyên. Đúng cặp assertion mà `demo.test.ts` và
+   * `agent.test.ts` đã làm phía server.
+   */
+  it("dựng lại từ trạng thái đã hydrate: ẩn bảng điểm cũ, dữ liệu đã lưu vẫn còn", async () => {
+    evalRunQuery.data = STORED_RUN;
+    artifactsQuery.data = BUILT;
+    let resolveBuild!: (value: BuildOutput) => void;
+    buildMutation.mutateAsync.mockImplementation(
+      () =>
+        new Promise<BuildOutput>((resolve) => {
+          resolveBuild = resolve;
+        }),
+    );
+    evaluateMutation.mutateAsync.mockResolvedValue(EVALUATED);
+    const onEvaluatedChange = vi.fn();
+
+    renderStep3Build(onEvaluatedChange);
+
+    expect(await screen.findByText("Kết quả kiểm định")).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: /Dựng lại agent/i }));
+
+    // Bảng điểm cũ chấm cho một system prompt đang bị thay — không được hiện nữa.
+    expect(screen.queryByText("Kết quả kiểm định")).not.toBeInTheDocument();
+    // Và stepper không được mở Bước 4 dựa trên bảng điểm đó.
+    expect(onEvaluatedChange).toHaveBeenCalledWith(false);
+    expect(screen.getByRole("button", { name: /Xem trang demo/ })).toBeDisabled();
+    // Dữ liệu đã lưu KHÔNG bị xoá — chỉ ngừng hiển thị.
+    expect(evalRunQuery.data).toBe(STORED_RUN);
+    // Đúng một lượt dựng, qua đúng `run()` mà đường thử lại dùng.
+    expect(buildMutation.mutateAsync).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      resolveBuild(BUILT);
+    });
+
+    await waitFor(() => expect(evaluateMutation.mutateAsync).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(onEvaluatedChange).toHaveBeenCalledWith(true));
+    expect(await screen.findByText("Kết quả kiểm định")).toBeInTheDocument();
+  });
+
+  it("chưa hydrate từ dữ liệu đã lưu thì không có nút dựng lại", async () => {
+    buildMutation.mutateAsync.mockResolvedValue(BUILT);
+    evaluateMutation.mutateAsync.mockResolvedValue(EVALUATED);
+
+    renderStep3Build();
+
+    await waitFor(() => expect(evaluateMutation.mutateAsync).toHaveBeenCalledTimes(1));
+    expect(screen.queryByRole("button", { name: /Dựng lại agent/i })).not.toBeInTheDocument();
   });
 
   it("hai query còn pending thì chưa quyết định gì, không dựng", async () => {

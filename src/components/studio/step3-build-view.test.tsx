@@ -24,6 +24,7 @@ function props(over: Partial<Step3ViewProps> = {}): Step3ViewProps {
     artifacts: null,
     evalSummary: null,
     evalResults: [],
+    hydratedFromStored: false,
     onRetry: vi.fn(),
     onBack: vi.fn(),
     onContinue: vi.fn(),

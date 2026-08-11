@@ -28,6 +28,7 @@ export function Step3Build({
   const [artifacts, setArtifacts] = useState<Step3Artifacts | null>(null);
   const [evalSummary, setEvalSummary] = useState<EvalResult["summary"] | null>(null);
   const [evalResults, setEvalResults] = useState<EvalResult["results"]>([]);
+  const [hydratedFromStored, setHydratedFromStored] = useState(false);
 
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
   const started = useRef(false);
@@ -69,6 +70,10 @@ export function Step3Build({
       onEvaluatedChange(false);
       setEvalSummary(null);
       setEvalResults([]);
+      // Từ giây này màn hình không còn là ảnh của dữ liệu đã lưu nữa. Dữ liệu đó
+      // KHÔNG bị xoá — chỉ ngừng được hiển thị, đúng quy tắc mà `agent.evalRun` và
+      // `demo.bySlug` áp dụng phía server.
+      setHydratedFromStored(false);
       setLines([{ kind: "info", text: "Đang sinh persona, system prompt và guardrails…" }]);
       startClock("Đang dựng agent");
 
@@ -140,6 +145,7 @@ export function Step3Build({
           text: `${stored.summary.passed}/${stored.summary.total} bài đạt · pass rate ${stored.summary.passRate}%`,
         },
       ]);
+      setHydratedFromStored(true);
       onEvaluatedChange(true);
       return;
     }
@@ -166,6 +172,7 @@ export function Step3Build({
       artifacts={artifacts}
       evalSummary={evalSummary}
       evalResults={evalResults}
+      hydratedFromStored={hydratedFromStored}
       onRetry={() => void run()}
       onBack={onBack}
       onContinue={onContinue}

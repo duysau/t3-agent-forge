@@ -23,6 +23,14 @@ export interface Step3ViewProps {
   artifacts: { persona: Persona; systemPrompt: string; guardrails: string[] } | null;
   evalSummary: EvalResult["summary"] | null;
   evalResults: EvalResult["results"];
+  /**
+   * True khi Bước 3 đã dựng lại màn hình từ dữ liệu đã lưu thay vì tự chạy. Đó là
+   * đường DUY NHẤT mà auto-run bị chặn, nên cũng là đường duy nhất cần một nút dựng
+   * lại tường minh — không có nó thì toàn bộ thiết kế "dựng lại thì ẩn bảng điểm cũ"
+   * (status về `built`, `agent.evalRun`/`demo.bySlug` ngừng trả bảng điểm, hàng cũ
+   * vẫn giữ) không còn đường nào chạm tới từ giao diện.
+   */
+  hydratedFromStored: boolean;
   onRetry: () => void;
   onBack: () => void;
   onContinue: () => void;
@@ -68,6 +76,28 @@ export function Step3BuildView(p: Step3ViewProps) {
 
         {p.evalSummary && <EvalSummary summary={p.evalSummary} />}
         {p.evalSummary && <EvalTestList results={p.evalResults} />}
+
+        {p.hydratedFromStored && (
+          <div className="mt-6 flex flex-wrap items-center gap-3 rounded-xl border border-border p-4">
+            {/*
+              Nút này tiêu 40+ lệnh gọi LLM vì một cú bấm có chủ đích, không phải để
+              hồi phục sau một lỗi nhìn thấy được — nên hậu quả phải đọc được ngay
+              cạnh nó: bảng điểm hiện tại sẽ bị thay.
+            */}
+            <p className="flex-1 text-[13px] text-muted-foreground">
+              Dựng lại sẽ sinh persona và system prompt mới rồi chấm điểm lại 20 bài — mất vài
+              phút và thay bảng điểm đang hiện.
+            </p>
+            {/*
+              Dùng chính `onRetry` — tức chính `run()` mà đường thử lại dùng — nên ref
+              `running` vẫn là thứ duy nhất chặn lượt chạy trùng. Không có đường dựng
+              thứ hai.
+            */}
+            <Button variant="outline" size="sm" onClick={p.onRetry}>
+              Dựng lại agent
+            </Button>
+          </div>
+        )}
       </CardContent>
 
       <CardFooter className="justify-between border-t">
