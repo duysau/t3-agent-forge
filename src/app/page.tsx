@@ -1,5 +1,6 @@
 "use client";
 
+import { BackendStatusBanner } from "~/components/studio/backend-status-banner";
 import { Stepper } from "~/components/studio/stepper";
 import { Step1Source } from "~/components/studio/step1-source";
 import { Step2Product } from "~/components/studio/step2-product";
@@ -20,6 +21,8 @@ export default function HomePage() {
       <div className="mb-8">
         <Stepper current={w.step} onSelect={w.goTo} canGoTo={w.canGoTo} />
       </div>
+
+      <BackendStatusBanner />
 
       {w.step === 1 && (
         <Step1Source onReady={w.setSlug} onContinue={() => w.goTo(2)} />

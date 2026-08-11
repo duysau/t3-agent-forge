@@ -56,6 +56,26 @@ async function brandOrDefault(
 }
 
 export const sourceRouter = createTRPCRouter({
+  /**
+   * Không bao giờ throw. Đây là procedure duy nhất mà "backend chết" là một
+   * câu trả lời hợp lệ, không phải một lỗi — cả trang phụ thuộc vào nó để
+   * quyết định có hiện banner hay không.
+   */
+  health: publicProcedure.query(async ({ ctx }) => {
+    try {
+      await ctx.source.health();
+      return { backend: "up" as const, reason: null };
+    } catch (err) {
+      const reason =
+        err instanceof AgentForgeError
+          ? (err.detail ?? err.message)
+          : err instanceof Error
+            ? err.message
+            : "Lỗi không xác định";
+      return { backend: "down" as const, reason };
+    }
+  }),
+
   crawl: publicProcedure
     .input(
       z.object({

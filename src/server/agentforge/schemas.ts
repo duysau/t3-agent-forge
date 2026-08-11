@@ -2,6 +2,8 @@ import { z } from "zod";
 
 export const BRAND_FALLBACK_COLOR = "#203ADC";
 
+export const healthResponse = z.object({ status: z.string() });
+
 export const sessionResponse = z
   .object({ session_id: z.string() })
   .transform((r) => ({ sessionId: r.session_id }));

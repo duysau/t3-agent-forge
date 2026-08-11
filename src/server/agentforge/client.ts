@@ -5,6 +5,7 @@ import {
   crawlResponse,
   documentResponse,
   evalResponse,
+  healthResponse,
   kbResponse,
   restoreResponse,
   sessionResponse,
@@ -60,6 +61,7 @@ interface RequestOptions<T> {
 
 export interface AgentForgeClient {
   createSession(): Promise<{ sessionId: string }>;
+  health(): Promise<{ status: string }>;
   crawl(input: { url: string; maxPages: number }): Promise<CrawlResult>;
   brand(sessionId: string): Promise<BrandResult>;
   build(input: { sessionId: string; product: Product }): Promise<BuildResult>;
@@ -142,6 +144,14 @@ export function createClient(opts: {
         timeoutMs: TIMEOUTS.sessions,
         schema: sessionResponse,
         label: "sessions",
+      }),
+
+    health: () =>
+      request({
+        path: "/api/health",
+        timeoutMs: TIMEOUTS.health,
+        schema: healthResponse,
+        label: "health",
       }),
 
     crawl: ({ url, maxPages }) =>

@@ -10,6 +10,7 @@ import type {
 
 export interface AgentForgeSource {
   readonly kind: "live" | "fixture";
+  health(): Promise<{ status: string }>;
   crawl(input: { url: string; maxPages: number }): Promise<CrawlResult>;
   brand(sessionId: string): Promise<BrandResult>;
   build(input: { sessionId: string; product: Product }): Promise<BuildResult>;
@@ -27,6 +28,7 @@ export interface AgentForgeSource {
 export function createLiveSource(client: AgentForgeClient): AgentForgeSource {
   return {
     kind: "live",
+    health: () => client.health(),
     crawl: (i) => client.crawl(i),
     brand: (sid) => client.brand(sid),
     build: (i) => client.build(i),

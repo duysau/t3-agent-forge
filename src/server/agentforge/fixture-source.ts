@@ -22,6 +22,10 @@ export function createFixtureSource(
   return {
     kind: "fixture",
 
+    async health() {
+      return { status: "ok" };
+    },
+
     async crawl() {
       await sleep(delay);
       return {
