@@ -1,6 +1,41 @@
 import { describe, expect, it, vi } from "vitest";
-import { createLiveSource } from "./source";
+import { createLiveSource, type AgentForgeSource } from "./source";
 import type { AgentForgeClient } from "./client";
+
+type ForwardCase = [method: Exclude<keyof AgentForgeSource, "kind">, args: unknown[]];
+
+/**
+ * Một trường hợp cho MỖI method mà `createLiveSource` chuyển tiếp. Nếu thiếu
+ * một method ở đây, một sabotage như `evaluate: (i) => client.build(i)` vẫn
+ * compile và pass toàn bộ test suite trước đó — nó chỉ lộ ra khi có test gọi
+ * đúng `source.evaluate` và kiểm `client.evaluate` (không phải `client.build`)
+ * được gọi.
+ */
+const FORWARD_CASES: ForwardCase[] = [
+  ["health", []],
+  ["crawl", [{ url: "https://senspa.vn", maxPages: 5 }]],
+  ["brand", ["sid"]],
+  ["build", [{ sessionId: "sid", product: "chat" }]],
+  ["evaluate", [{ sessionId: "sid", product: "chat" }]],
+  ["chat", [{ sessionId: "sid", message: "hi", history: [] }]],
+  ["uploadDocument", [{ sessionId: "sid", file: new File(["x"], "a.pdf") }]],
+  ["kbSnapshot", ["sid"]],
+  [
+    "restore",
+    [
+      {
+        sessionId: "sid",
+        systemPrompt: "prompt",
+        guardrails: ["g"],
+        chunks: ["c"],
+        kbFacts: ["f"],
+        brand: {},
+        persona: {},
+        url: "https://senspa.vn",
+      },
+    ],
+  ],
+];
 
 function stubClient(overrides: Partial<AgentForgeClient> = {}): AgentForgeClient {
   return {
@@ -21,6 +56,21 @@ describe("createLiveSource", () => {
   it("tự nhận kind live", () => {
     expect(createLiveSource(stubClient()).kind).toBe("live");
   });
+
+  it.each(FORWARD_CASES)(
+    "chuyển %s xuống client cùng tham số, không đổi",
+    async (method, args) => {
+      const mockFn = vi.fn().mockResolvedValue({ marker: `${method}-ok` });
+      const source = createLiveSource(stubClient({ [method]: mockFn } as Partial<AgentForgeClient>));
+
+      const call = source[method] as (...a: unknown[]) => Promise<unknown>;
+      const out = await call(...args);
+
+      expect(mockFn).toHaveBeenCalledTimes(1);
+      expect(mockFn).toHaveBeenCalledWith(...args);
+      expect(out).toEqual({ marker: `${method}-ok` });
+    },
+  );
 
   it("chuyển crawl xuống client không đổi tham số", async () => {
     const crawl = vi.fn().mockResolvedValue({
