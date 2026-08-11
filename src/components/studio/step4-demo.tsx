@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ArrowLeft } from "lucide-react";
 import { Button } from "~/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "~/components/ui/card";
@@ -23,8 +23,18 @@ export function Step4Demo({ slug, onBack }: { slug: string; onBack: () => void }
   const [copied, setCopied] = useState(false);
   const [copyError, setCopyError] = useState<string | null>(null);
   const [origin, setOrigin] = useState("");
+  // Nhớ timeout đang chờ để một lượt sao chép mới có thể huỷ nó — nếu không,
+  // timeout "tắt nhãn đã sao chép" của lượt TRƯỚC có thể tự bắn ra sau và ghi
+  // đè lên trạng thái copied/copyError của lượt sau, dù lượt sau đã tự quyết
+  // định trạng thái đúng của nó rồi.
+  const copiedTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => setOrigin(window.location.origin), []);
+  useEffect(() => {
+    return () => {
+      if (copiedTimeoutRef.current) clearTimeout(copiedTimeoutRef.current);
+    };
+  }, []);
   const shareUrl = origin ? `${origin}/s/${slug}` : `/s/${slug}`;
 
   if (demo.isPending) {
@@ -68,6 +78,13 @@ export function Step4Demo({ slug, onBack }: { slug: string; onBack: () => void }
           copied={copied}
           copyError={copyError}
           onCopy={() => {
+            // Mỗi lượt bấm mới huỷ timeout còn treo của lượt trước — nếu không,
+            // timeout đó có thể bắn ra sau và ghi đè trạng thái copied/copyError
+            // mà lượt này vừa mới quyết định.
+            if (copiedTimeoutRef.current) {
+              clearTimeout(copiedTimeoutRef.current);
+              copiedTimeoutRef.current = null;
+            }
             setCopyError(null);
             // navigator.clipboard có thể hoàn toàn không tồn tại (context không an
             // toàn) chứ không chỉ reject — nên bọc cả lời gọi, không riêng promise.
@@ -75,9 +92,16 @@ export function Step4Demo({ slug, onBack }: { slug: string; onBack: () => void }
               .then(() => navigator.clipboard.writeText(shareUrl))
               .then(() => {
                 setCopied(true);
-                setTimeout(() => setCopied(false), 2000);
+                copiedTimeoutRef.current = setTimeout(() => {
+                  setCopied(false);
+                  copiedTimeoutRef.current = null;
+                }, 2000);
               })
               .catch(() => {
+                // Đừng để nhãn "Đã sao chép" của lượt TRƯỚC còn hiện trong lúc
+                // lượt này báo lỗi — nếu không UI vừa nói thành công vừa nói
+                // thất bại cùng lúc.
+                setCopied(false);
                 setCopyError(CLIPBOARD_FALLBACK_MESSAGE);
               });
           }}

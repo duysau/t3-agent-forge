@@ -8,7 +8,7 @@ interface BySlugInput {
   slug: string;
 }
 
-const { demoQuery, sendMutation } = vi.hoisted(() => ({
+const { demoQuery, sendMutation, toQrDataUrl } = vi.hoisted(() => ({
   demoQuery: {
     data: undefined as DemoPayload | undefined,
     isPending: false,
@@ -18,6 +18,7 @@ const { demoQuery, sendMutation } = vi.hoisted(() => ({
     mutateAsync: vi.fn<(input: unknown) => Promise<{ reply: string }>>(),
     isPending: false,
   },
+  toQrDataUrl: vi.fn<(text: string) => Promise<string>>(),
 }));
 
 vi.mock("~/trpc/react", () => ({
@@ -29,6 +30,10 @@ vi.mock("~/trpc/react", () => ({
       send: { useMutation: () => sendMutation },
     },
   },
+}));
+
+vi.mock("~/lib/qr", () => ({
+  toQrDataUrl,
 }));
 
 const PAYLOAD: DemoPayload = {
@@ -54,19 +59,29 @@ function renderStep4() {
   return render(<Step4Demo slug="demo-agent" onBack={vi.fn()} />);
 }
 
+// Một chỗ duy nhất định nghĩa link kỳ vọng — mọi test dùng lại giá trị này để
+// so sánh với link hiển thị, link chép vào clipboard, VÀ link mã hoá vào QR.
+// Nếu viết literal này ba lần trong ba assertion khác nhau, chính test cũng có
+// thể trôi giống hệt cách component có thể trôi (hiển thị một link, chép một
+// link khác, mã hoá một link khác nữa) mà không ai phát hiện ra.
+function expectedShareUrl() {
+  return `${window.location.origin}/s/demo-agent`;
+}
+
 describe("Step4Demo", () => {
   beforeEach(() => {
     demoQuery.data = PAYLOAD;
     demoQuery.isPending = false;
     demoQuery.error = null;
     sendMutation.mutateAsync.mockReset();
+    toQrDataUrl.mockReset();
+    toQrDataUrl.mockResolvedValue("data:image/png;base64,AAA");
   });
 
   it("link chia sẻ là <origin>/s/<slug>", async () => {
     renderStep4();
 
-    const expected = `${window.location.origin}/s/demo-agent`;
-    expect(await screen.findByText(expected)).toBeInTheDocument();
+    expect(await screen.findByText(expectedShareUrl())).toBeInTheDocument();
   });
 
   it("sao chép thành công thì đổi nhãn và gọi clipboard với đúng link", async () => {
@@ -74,13 +89,12 @@ describe("Step4Demo", () => {
     Object.assign(navigator, { clipboard: { writeText } });
 
     renderStep4();
-    const expected = `${window.location.origin}/s/demo-agent`;
-    await screen.findByText(expected);
+    await screen.findByText(expectedShareUrl());
 
-    await userEvent.click(screen.getByRole("button", { name: /Sao chép/ }));
+    await userEvent.click(screen.getByRole("button", { name: /sao chép/i }));
 
     expect(await screen.findByText(/Đã sao chép/)).toBeInTheDocument();
-    expect(writeText).toHaveBeenCalledWith(expected);
+    expect(writeText).toHaveBeenCalledWith(expectedShareUrl());
   });
 
   it("sao chép bị từ chối thì hiện hướng dẫn chép tay, không báo đã xong", async () => {
@@ -88,12 +102,49 @@ describe("Step4Demo", () => {
     Object.assign(navigator, { clipboard: { writeText } });
 
     renderStep4();
-    const expected = `${window.location.origin}/s/demo-agent`;
-    await screen.findByText(expected);
+    await screen.findByText(expectedShareUrl());
 
-    await userEvent.click(screen.getByRole("button", { name: /Sao chép/ }));
+    await userEvent.click(screen.getByRole("button", { name: /sao chép/i }));
 
     expect(await screen.findByText(/chép tay|thủ công|tự sao chép/i)).toBeInTheDocument();
     expect(screen.queryByText(/Đã sao chép/)).not.toBeInTheDocument();
+  });
+
+  it("sao chép thất bại ngay sau một lần thành công thì không còn giữ nhãn đã sao chép cũ", async () => {
+    const writeText = vi
+      .fn()
+      .mockResolvedValueOnce(undefined)
+      .mockRejectedValueOnce(new Error("Không có quyền clipboard"));
+    Object.assign(navigator, { clipboard: { writeText } });
+
+    renderStep4();
+    await screen.findByText(expectedShareUrl());
+
+    // Lượt 1: thành công — nhãn đổi thành "Đã sao chép".
+    await userEvent.click(screen.getByRole("button", { name: /sao chép/i }));
+    expect(await screen.findByText(/Đã sao chép/)).toBeInTheDocument();
+
+    // Lượt 2, trong lúc nhãn cũ còn hiện: thất bại. Nút giờ mang nhãn
+    // "Đã sao chép" nên vẫn khớp /sao chép/i — bấm lại đúng nút đó.
+    await userEvent.click(screen.getByRole("button", { name: /sao chép/i }));
+
+    expect(await screen.findByText(/chép tay|thủ công|tự sao chép/i)).toBeInTheDocument();
+    expect(screen.queryByText(/Đã sao chép/)).not.toBeInTheDocument();
+  });
+
+  it("mã QR mã hoá đúng cùng một link đang hiển thị và được sao chép", async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.assign(navigator, { clipboard: { writeText } });
+
+    renderStep4();
+    await screen.findByText(expectedShareUrl());
+
+    await userEvent.click(screen.getByRole("button", { name: /sao chép/i }));
+    await screen.findByText(/Đã sao chép/);
+    expect(writeText).toHaveBeenCalledWith(expectedShareUrl());
+
+    await userEvent.click(screen.getByRole("button", { name: /Mã QR/ }));
+
+    expect(toQrDataUrl).toHaveBeenCalledWith(expectedShareUrl());
   });
 });
