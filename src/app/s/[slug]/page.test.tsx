@@ -159,6 +159,29 @@ describe("DemoPage", () => {
     expect(notFound).toHaveBeenCalledTimes(1);
   });
 
+  /**
+   * Đây là đầu vào THẬT DUY NHẤT của nhánh "unavailable", và nó chưa từng được test.
+   * Test dưới dùng một `Error` trần — một hình dạng người gọi thật không tạo ra
+   * được, vì `createCallerFactory` luôn re-throw một `TRPCError`. Nên trường hợp
+   * thực tế (Postgres chết → `TRPCError` code `INTERNAL_SERVER_ERROR`) không được
+   * phủ, và một implementation chỉ kiểm `err instanceof TRPCError` rồi gọi
+   * `notFound()` sẽ pass test kia y như vậy.
+   */
+  it("TRPCError INTERNAL_SERVER_ERROR (Postgres chết) đi đường trung thực, KHÔNG phải 404", async () => {
+    demoBySlug.mockRejectedValueOnce(
+      new TRPCError({
+        code: "INTERNAL_SERVER_ERROR",
+        message: "Hệ thống gặp lỗi không mong muốn. Vui lòng thử lại.",
+      }),
+    );
+
+    render(await loadPage());
+
+    expect(notFound).not.toHaveBeenCalled();
+    expect(screen.getByText(/hệ thống đang gặp sự cố/i)).toBeInTheDocument();
+    expect(screen.queryByText(/link có thể đã bị xoá/i)).not.toBeInTheDocument();
+  });
+
   it("lỗi chung (Postgres không kết nối được) thì KHÔNG gọi notFound(), hiện thông báo trung thực", async () => {
     demoBySlug.mockRejectedValueOnce(new Error("connect ECONNREFUSED"));
 

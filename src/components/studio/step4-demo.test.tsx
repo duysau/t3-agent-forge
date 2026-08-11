@@ -133,6 +133,23 @@ describe("Step4Demo", () => {
     expect(screen.queryByText(/Đã sao chép/)).not.toBeInTheDocument();
   });
 
+  /**
+   * `toQrDataUrl` throw có chủ đích. Không có `.catch`, người dùng bấm "Mã QR" và
+   * nhận về một nút chết cộng một unhandled rejection — cùng hư hỏng thầm lặng mà
+   * đường lỗi clipboard ngay bên cạnh đã được vá.
+   */
+  it("sinh mã QR lỗi thì hiện thông báo, không im lặng", async () => {
+    toQrDataUrl.mockRejectedValue(new Error("Không sinh được mã QR từ chuỗi rỗng"));
+
+    renderStep4();
+    await screen.findByText(expectedShareUrl());
+
+    await userEvent.click(screen.getByRole("button", { name: /Mã QR/ }));
+
+    expect(await screen.findByText(/Không sinh được mã QR/)).toBeInTheDocument();
+    expect(screen.queryByAltText(/Mã QR của link demo/)).not.toBeInTheDocument();
+  });
+
   it("agent chưa dựng thì hiện trạng thái thật thay vì ô chat, link vẫn chia sẻ được", async () => {
     demoQuery.data = { ...PAYLOAD, status: "draft" };
 

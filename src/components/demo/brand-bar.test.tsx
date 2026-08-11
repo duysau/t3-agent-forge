@@ -62,6 +62,19 @@ describe("BrandBar", () => {
     expect(screen.queryByText(/Dữ liệu mẫu/)).not.toBeInTheDocument();
   });
 
+  /**
+   * Crawl có thể trả `""` chứ không phải null — field CÓ trong response nhưng rỗng.
+   * `??` chỉ rơi qua với null/undefined, nên chuỗi rỗng sẽ render một badge logo
+   * trắng và một tiêu đề trắng trên đúng trang công khai mà khách nhìn thấy.
+   */
+  it("chuỗi rỗng cũng rơi về mặc định, không render badge và tiêu đề trắng", () => {
+    render(
+      <BrandBar name="" letter="" emoji="" color="#203ADC" product="chat" mode="live" degraded={false} />,
+    );
+    expect(screen.getByTestId("brand-logo")).toHaveTextContent("A");
+    expect(screen.getByText("Agent demo")).toBeInTheDocument();
+  });
+
   it("brand chưa trích được thì vẫn render, không vỡ", () => {
     render(
       <BrandBar name={null} letter={null} emoji={null} color="#203ADC" product={null} mode="live" degraded={false} />,

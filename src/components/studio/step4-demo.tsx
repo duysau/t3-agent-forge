@@ -19,11 +19,14 @@ import { ShareBox } from "./share-box";
 const CLIPBOARD_FALLBACK_MESSAGE =
   "Không tự sao chép được — hãy bôi đen và chép link ở trên (Ctrl+C).";
 
+const QR_FALLBACK_MESSAGE = "Không sinh được mã QR — hãy chia sẻ link ở trên.";
+
 export function Step4Demo({ slug, onBack }: { slug: string; onBack: () => void }) {
   const demo = api.demo.bySlug.useQuery({ slug });
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [copyError, setCopyError] = useState<string | null>(null);
+  const [qrError, setQrError] = useState<string | null>(null);
   const [origin, setOrigin] = useState("");
   // Nhớ timeout đang chờ để một lượt sao chép mới có thể huỷ nó — nếu không,
   // timeout "tắt nhãn đã sao chép" của lượt TRƯỚC có thể tự bắn ra sau và ghi
@@ -113,7 +116,20 @@ export function Step4Demo({ slug, onBack }: { slug: string; onBack: () => void }
                 setCopyError(CLIPBOARD_FALLBACK_MESSAGE);
               });
           }}
-          onShowQr={() => void toQrDataUrl(shareUrl).then(setQrDataUrl)}
+          qrError={qrError}
+          // `toQrDataUrl` throw có chủ đích (chuỗi rỗng, hoặc qrcode tự lỗi), nên
+          // `void ...then()` không `.catch` để lại một nút chết kèm unhandled
+          // rejection — đúng cái mà đường lỗi của clipboard ngay trên đã trả giá để
+          // học. Cùng cách xử lý: một câu tiếng Việt ngắn, nhìn thấy được.
+          onShowQr={() => {
+            setQrError(null);
+            void toQrDataUrl(shareUrl)
+              .then(setQrDataUrl)
+              .catch(() => {
+                setQrDataUrl(null);
+                setQrError(QR_FALLBACK_MESSAGE);
+              });
+          }}
         />
       </CardContent>
 

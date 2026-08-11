@@ -10,6 +10,7 @@ export function ShareBox({
   copied,
   onCopy,
   copyError,
+  qrError,
 }: {
   url: string;
   qrDataUrl: string | null;
@@ -17,6 +18,7 @@ export function ShareBox({
   copied: boolean;
   onCopy: () => void;
   copyError?: string | null;
+  qrError?: string | null;
 }) {
   return (
     <div className="mt-6 rounded-xl border border-border p-5">
@@ -42,6 +44,8 @@ export function ShareBox({
       {copyError && (
         <p className="mt-2 text-[13px] text-error-strong">{copyError}</p>
       )}
+
+      {qrError && <p className="mt-2 text-[13px] text-error-strong">{qrError}</p>}
 
       {qrDataUrl && (
         // eslint-disable-next-line @next/next/no-img-element -- data URL, không qua next/image

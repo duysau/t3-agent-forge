@@ -54,10 +54,16 @@ export function BrandBar({
         data-testid="brand-logo"
         className="grid size-10 place-items-center rounded-xl bg-white/20 text-lg font-bold"
       >
-        {emoji ?? letter ?? "A"}
+        {/*
+          `||` chứ không phải `??`: `??` chỉ rơi qua với null/undefined, nên một
+          crawl trả về `""` (brand có trong response nhưng rỗng) render ra một badge
+          logo trắng và một tiêu đề trắng trên trang công khai. Chuỗi rỗng ở đây là
+          "không có giá trị", đúng như null.
+        */}
+        {emoji || letter || "A"}
       </span>
       <div className="flex-1">
-        <div className="font-bold">{name ?? "Agent demo"}</div>
+        <div className="font-bold">{name || "Agent demo"}</div>
         <div className="text-[13px] text-white/80">
           {product === "voice" ? "Tổng đài tự động" : "Trợ lý tư vấn trực tuyến"}
         </div>
