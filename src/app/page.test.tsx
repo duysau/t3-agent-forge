@@ -23,7 +23,11 @@ describe("HomePage", () => {
   });
 
   it("mở ra là đang ở Bước 1", () => {
+    // "AgentForge Studio" comes from StudioHead, which renders on EVERY step,
+    // so asserting on it cannot distinguish step 1 from any other step — it
+    // passes even if the wizard opened on step 2, 3 or 4. Step 1's own panel
+    // title ("Gắn nguồn dữ liệu") only renders while step 1 is active.
     render(<HomePage />);
-    expect(screen.getByRole("heading", { name: /AgentForge Studio/ })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /Gắn nguồn dữ liệu/ })).toBeInTheDocument();
   });
 });
