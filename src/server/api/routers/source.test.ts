@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { TRPCError } from "@trpc/server";
 import { makeTestDb } from "~/test/db";
 import type { Db } from "~/server/db/types";
 import { createCallerFactory } from "~/server/api/trpc";
@@ -6,6 +7,8 @@ import { appRouter } from "~/server/api/root";
 import { createFixtureSource } from "~/server/agentforge/fixture-source";
 import { AgentForgeError } from "~/server/agentforge/errors";
 import type { AgentForgeSource } from "~/server/agentforge/source";
+
+const GENERIC_ERROR_MESSAGE = "Hệ thống gặp lỗi không mong muốn. Vui lòng thử lại.";
 
 let db: Db;
 let close: () => Promise<void>;
@@ -88,7 +91,17 @@ describe("source.crawl", () => {
 
   it("từ chối URL không đúng dạng ngay ở input schema", async () => {
     const api = caller(createFixtureSource("senspa", { delayMs: 0 }));
-    await expect(api.source.crawl({ url: "khong-phai-url", mode: "live" })).rejects.toThrow();
+
+    const err: unknown = await api.source
+      .crawl({ url: "khong-phai-url", mode: "live" })
+      .then(() => null, (e: unknown) => e);
+
+    // Đọc thẳng code trên TRPCError, không match theo prose: lỗi validation của
+    // Zod (input schema) phải giữ đúng BAD_REQUEST, không bị hạ xuống
+    // INTERNAL_SERVER_ERROR và message không được thay bằng message chung.
+    expect(err).toBeInstanceOf(TRPCError);
+    expect((err as TRPCError).code).toBe("BAD_REQUEST");
+    expect((err as TRPCError).message).not.toBe(GENERIC_ERROR_MESSAGE);
   });
 
   it("lỗi hệ thống không xác định (vd driver DB chết) thì che message gốc, chỉ trả message chung", async () => {
@@ -102,9 +115,10 @@ describe("source.crawl", () => {
       .source.crawl({ url: "https://x.vn", mode: "live" })
       .then(() => null, (e: unknown) => e);
 
-    expect(err).toBeInstanceOf(Error);
+    expect(err).toBeInstanceOf(TRPCError);
+    expect((err as TRPCError).code).toBe("INTERNAL_SERVER_ERROR");
     const message = (err as Error).message;
-    expect(message).toBe("Hệ thống gặp lỗi không mong muốn. Vui lòng thử lại.");
+    expect(message).toBe(GENERIC_ERROR_MESSAGE);
     // Đây là bài test lộ thông tin thật sự quan trọng: message gốc của driver
     // (host, port) tuyệt đối không được lọt tới client.
     expect(message).not.toMatch(/ECONNREFUSED|127\.0\.0\.1|5432/);

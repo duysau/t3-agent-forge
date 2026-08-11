@@ -94,12 +94,16 @@ export const createTRPCRouter = t.router;
  *
  * 1. `AgentForgeError` → map thành `TRPCError` đúng code, giữ `detail` làm message —
  *    detail đã là tiếng Việt và có chủ đích, không phải che giấu.
- * 2. `TRPCError` → giữ nguyên vẹn. Procedure tự raise cái này có chủ đích (ví dụ
- *    "Không tìm thấy agent") — không được ghi đè message của nó.
- * 3. Bất cứ gì khác (driver DB chết, null deref, lỗi không lường trước...) → log qua
- *    `logBoundary` để giữ nguyên nhân thật trong log server, rồi thay bằng `TRPCError`
- *    với message chung. Message gốc — thường tiếng Anh, có thể lộ chi tiết hạ tầng như
- *    host:port của DB — KHÔNG được lọt tới client.
+ * 2. Bất cứ `TRPCError` nào KHÁC có code cụ thể — `BAD_REQUEST` từ Zod (input schema
+ *    tự raise cái này khi parse lỗi, `cause` là `ZodError`), `NOT_FOUND` một procedure
+ *    tự raise, hoặc bất kỳ `TRPCError` nào khác kèm `cause` riêng — giữ nguyên vẹn.
+ *    Một code cụ thể (khác `INTERNAL_SERVER_ERROR`) đã mang chủ đích, không phải lỗi
+ *    lạ cần che.
+ * 3. Auto-wrap `INTERNAL_SERVER_ERROR` từ một throw không xác định (driver DB chết,
+ *    null deref, lỗi không lường trước...) → log qua `logBoundary` để giữ nguyên nhân
+ *    thật trong log server, rồi thay bằng `TRPCError` với message chung. Message gốc
+ *    — thường tiếng Anh, có thể lộ chi tiết hạ tầng như host:port của DB — KHÔNG được
+ *    lọt tới client.
  *
  * QUAN TRỌNG về cách bắt lỗi: trên @trpc/server 11.18, `next()` KHÔNG throw khi
  * procedure/middleware phía dưới lỗi — nó resolve về `{ ok: false, error }` (đã tự
@@ -111,11 +115,12 @@ export const createTRPCRouter = t.router;
  * middleware: lỗi từ resolver luôn tới đây dưới dạng `result.error`, không bao giờ
  * qua nhánh catch. Vì vậy phải kiểm `result.ok` thay vì bắt exception.
  *
- * Cách phân biệt case 2 và case 3 (cả hai đều là `TRPCError` ở `result.error`, vì lõi
- * tRPC luôn bọc lỗi thành `TRPCError` trước khi đưa tới đây): `result.error.cause` chỉ
- * được set khi lõi tRPC tự bọc một lỗi KHÔNG PHẢI `TRPCError` (case AgentForgeError hoặc
- * lỗi lạ); một `TRPCError` procedure tự raise trực tiếp (không kèm `cause`) sẽ có
- * `result.error.cause` là `undefined`.
+ * Cách phân biệt case 2 và case 3 KHÔNG dựa vào `cause` có mặt hay không (một
+ * `TRPCError` được raise trực tiếp vẫn có thể kèm `cause` riêng, ví dụ `BAD_REQUEST`
+ * từ Zod luôn có `cause` là `ZodError`) — dựa vào `code`. Lõi tRPC (`getTRPCErrorFromUnknown`)
+ * CHỈ gắn code `INTERNAL_SERVER_ERROR` khi tự bọc một throw không nhận dạng được;
+ * mọi `TRPCError` mang code cụ thể khác đã được raise có chủ đích (bởi input schema
+ * hoặc bởi chính procedure) và không được ghi đè.
  */
 const mapErrors = t.middleware(async ({ next, path }) => {
   const result = await next();
@@ -138,8 +143,8 @@ const mapErrors = t.middleware(async ({ next, path }) => {
     };
   }
 
-  if (cause == null) {
-    // Không có cause riêng => chính procedure đã raise TRPCError này có chủ đích.
+  if (result.error.code !== "INTERNAL_SERVER_ERROR") {
+    // Code cụ thể => đã được raise có chủ đích (Zod BAD_REQUEST, NOT_FOUND, ...).
     return result;
   }
 

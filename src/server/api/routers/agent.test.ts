@@ -1,10 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { TRPCError } from "@trpc/server";
 import { makeTestDb } from "~/test/db";
 import type { Db } from "~/server/db/types";
 import { createCallerFactory } from "~/server/api/trpc";
 import { appRouter } from "~/server/api/root";
 import { createFixtureSource } from "~/server/agentforge/fixture-source";
 import { persistCrawl } from "~/server/services/agent-store";
+
+const GENERIC_ERROR_MESSAGE = "Hệ thống gặp lỗi không mong muốn. Vui lòng thử lại.";
 
 let db: Db;
 let close: () => Promise<void>;
@@ -61,11 +64,23 @@ describe("agent.setProduct", () => {
 
   it("từ chối voiceId không nằm trong danh sách giọng đã chốt", async () => {
     const agent = await persistCrawl(db, { sourceUrl: "https://a.vn", mode: "live", crawl: CRAWL });
-    await expect(
-      // "giong_la" cố tình không thuộc voiceIdSchema; ép kiểu để test được giá
-      // trị runtime không hợp lệ mà vẫn qua vòng kiểm tra kiểu của z.enum.
-      caller().agent.setProduct({ slug: agent.slug, product: "voice", voiceId: "giong_la" as never }),
-    ).rejects.toThrow();
+
+    const err: unknown = await caller()
+      .agent.setProduct({
+        slug: agent.slug,
+        product: "voice",
+        // "giong_la" cố tình không thuộc voiceIdSchema; ép kiểu để test được giá
+        // trị runtime không hợp lệ mà vẫn qua vòng kiểm tra kiểu của z.enum.
+        voiceId: "giong_la" as never,
+      })
+      .then(() => null, (e: unknown) => e);
+
+    // Đọc thẳng code trên TRPCError, không match theo prose: lỗi validation của
+    // Zod (input schema) phải giữ đúng BAD_REQUEST, message không bị thay bằng
+    // message chung của case lỗi không xác định.
+    expect(err).toBeInstanceOf(TRPCError);
+    expect((err as TRPCError).code).toBe("BAD_REQUEST");
+    expect((err as TRPCError).message).not.toBe(GENERIC_ERROR_MESSAGE);
   });
 
   it("product voice mà thiếu voiceId thì dùng giọng mặc định", async () => {
