@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createFixtureSource } from "./fixture-source";
-import { fixtureKeyForUrl } from "~/lib/fixtures";
+import { FIXTURES, fixtureKeyForUrl } from "~/lib/fixtures";
 import { buildResponse, crawlResponse, evalResponse } from "./schemas";
 
 describe("fixtureKeyForUrl", () => {
@@ -61,6 +61,29 @@ describe("createFixtureSource", () => {
     const b = await source.chat({ sessionId: "x", message: "Mở cửa mấy giờ?", history: [] });
     expect(a.reply.length).toBeGreaterThan(0);
     expect(b.reply.length).toBeGreaterThan(0);
+    expect(a.reply).not.toBe(b.reply);
+
+    // Không đoán chuỗi mong đợi: đọc trực tiếp từ scriptedReplies của fixture để lấy
+    // đoạn văn bản đặc trưng, rồi kiểm tra đúng câu trả lời khớp đúng câu hỏi.
+    const priceEntry = FIXTURES.senspa.scriptedReplies.find((r) => r.match.includes("giá"));
+    const hoursEntry = FIXTURES.senspa.scriptedReplies.find((r) => r.match.includes("mở cửa"));
+    expect(priceEntry).toBeDefined();
+    expect(hoursEntry).toBeDefined();
+    const priceSubstring = /\d[\d.]*đ/.exec(priceEntry!.reply)?.[0];
+    const hoursSubstring = /\d{1,2}h\d{2}/.exec(hoursEntry!.reply)?.[0];
+    expect(priceSubstring).toBeDefined();
+    expect(hoursSubstring).toBeDefined();
+    expect(a.reply).toContain(priceSubstring);
+    expect(b.reply).toContain(hoursSubstring);
+  });
+
+  it("câu hỏi không khớp từ khoá nào thì trả về đúng fallbackReply", async () => {
+    const r = await source.chat({
+      sessionId: "x",
+      message: "Thời tiết hôm nay thế nào?",
+      history: [],
+    });
+    expect(r.reply).toBe(FIXTURES.senspa.fallbackReply);
   });
 
   it("bepnha là fixture khác biệt, không phải bản sao senspa", async () => {
@@ -93,7 +116,13 @@ describe("fixture thoả chính contract của backend", () => {
 
       expect(
         buildResponse.safeParse({
-          brand: { name: build.brand.name, logo_letter: build.brand.logoLetter, color: build.brand.color },
+          brand: {
+            name: build.brand.name,
+            logo: build.brand.logo,
+            logo_letter: build.brand.logoLetter,
+            color: build.brand.color,
+            industry: build.brand.industry,
+          },
           persona: { ...build.persona, avatar_letter: build.persona.avatarLetter },
           system_prompt: build.systemPrompt,
           guardrails: build.guardrails,
