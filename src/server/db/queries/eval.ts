@@ -67,7 +67,13 @@ export async function getLatestEvalRun(
     .select()
     .from(evalRuns)
     .where(eq(evalRuns.agentId, agentId))
-    .orderBy(desc(evalRuns.createdAt))
+    // Secondary sort by id breaks ties on equal createdAt. id is a random UUID, so
+    // this makes the tiebreak deterministic (same answer every time we ask), not
+    // "newest wins" (there is no way to know which of two equal timestamps came
+    // second). In practice an eval run takes 20s-3min and createdAt has microsecond
+    // resolution, so two genuine runs cannot collide; this guards against
+    // non-determinism, not a real production race.
+    .orderBy(desc(evalRuns.createdAt), desc(evalRuns.id))
     .limit(1);
 
   const run = runs[0];

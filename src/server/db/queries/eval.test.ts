@@ -53,13 +53,20 @@ describe("saveEvalRun", () => {
     expect(run?.results.map((r) => r.question)).toEqual(EVAL.results.map((r) => r.question));
   });
 
-  it("avgScore và score đọc ra là NUMBER, không phải chuỗi", async () => {
+  it("avgScore đọc ra là NUMBER, không phải chuỗi", async () => {
     const agent = await h.seedAgent();
     await saveEvalRun(h.db, agent.id, EVAL);
     const run = await getLatestEvalRun(h.db, agent.id);
 
     expect(typeof run?.summary.avgScore).toBe("number");
     expect(run?.summary.avgScore).toBeCloseTo(4.3, 2);
+  });
+
+  it("score của từng kết quả đọc ra là NUMBER, không phải chuỗi", async () => {
+    const agent = await h.seedAgent();
+    await saveEvalRun(h.db, agent.id, EVAL);
+    const run = await getLatestEvalRun(h.db, agent.id);
+
     expect(typeof run?.results[0]?.score).toBe("number");
     expect(run?.results[0]?.score).toBeCloseTo(4.5, 1);
   });
