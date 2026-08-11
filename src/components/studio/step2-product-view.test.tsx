@@ -68,4 +68,14 @@ describe("Step2ProductView", () => {
     await userEvent.click(screen.getByRole("button", { name: /Quay lại/ }));
     expect(onBack).toHaveBeenCalledTimes(1);
   });
+
+  it("thẻ đang chọn hiện dấu ✓, thẻ chưa chọn thì không", () => {
+    render(<Step2ProductView {...base} product="chat" />);
+    const chatCard = screen.getByText("FPT AI Chat").closest("button");
+    const voiceCard = screen.getByText("FPT AI Engage").closest("button");
+    expect(chatCard).not.toBeNull();
+    expect(voiceCard).not.toBeNull();
+    expect(chatCard).toHaveTextContent("✓");
+    expect(voiceCard).not.toHaveTextContent("✓");
+  });
 });
