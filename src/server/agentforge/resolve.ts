@@ -35,6 +35,11 @@ export interface FallbackOutcome<T> {
  * fixture và báo `degraded`. Chỉ ba loại lỗi đó được tụt hạng: `bad_request` là
  * lỗi đầu vào, `contract` là tín hiệu backend đổi — cả hai phải nổi lên để
  * người ta thấy, không được che bằng dữ liệu mẫu.
+ *
+ * Hợp đồng với `fn`: trên đường tụt hạng, `fn` bị gọi **hai lần** — một lần
+ * trên nguồn live, một lần trên fixture. `fn` phải an toàn khi gọi lại: không
+ * side effect nào ngoài các lệnh gọi trên `source` mà nó nhận, và người gọi
+ * không được giả định `fn` chỉ chạy đúng một lần.
  */
 export async function withFallback<T>(
   opts: WithFallbackOptions,

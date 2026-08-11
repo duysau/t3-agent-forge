@@ -2,8 +2,17 @@ import { describe, expect, it, vi } from "vitest";
 import { resolveSource, withFallback } from "./resolve";
 import { AgentForgeError } from "./errors";
 import { createFixtureSource } from "./fixture-source";
+import { DEFAULT_FIXTURE_KEY, FIXTURES } from "~/lib/fixtures";
+import { RAW_BRAND } from "./__fixtures__/responses";
 
 const BASE = "http://127.0.0.1:8444";
+
+function jsonRes(body: unknown, status = 200) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { "content-type": "application/json" },
+  });
+}
 
 describe("resolveSource", () => {
   it("mode live cho nguồn live", () => {
@@ -14,6 +23,23 @@ describe("resolveSource", () => {
     expect(resolveSource({ mode: "fixture", fixtureKey: "bepnha", baseUrl: BASE }).kind).toBe(
       "fixture",
     );
+  });
+
+  it("mode fixture không kèm fixtureKey thì dùng fixture mặc định", async () => {
+    const source = resolveSource({ mode: "fixture", baseUrl: BASE });
+
+    const brand = await source.brand("x");
+
+    expect(brand.name).toBe(FIXTURES[DEFAULT_FIXTURE_KEY].brand.name);
+  });
+
+  it("mode live chuyển fetchImpl xuống cho client", async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(jsonRes(RAW_BRAND));
+    const source = resolveSource({ mode: "live", baseUrl: BASE, fetchImpl });
+
+    await source.brand("x");
+
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -60,6 +86,22 @@ describe("withFallback", () => {
     );
 
     expect(out.fixtureKey).toBe("bepnha");
+  });
+
+  it("lỗi timeout thì cũng tụt hạng sang fixture", async () => {
+    const failing = {
+      ...live,
+      kind: "live" as const,
+      chat: vi.fn().mockRejectedValue(new AgentForgeError("timeout", "quá thời gian chờ", null)),
+    };
+
+    const out = await withFallback(
+      { source: failing, sourceUrl: "https://senspa.vn", enabled: true },
+      async (s) => (await s.chat({ sessionId: "x", message: "giá", history: [] })).reply,
+    );
+
+    expect(out.degraded).toBe(true);
+    expect(out.fixtureKey).toBe("senspa");
   });
 
   it("KHÔNG tụt hạng với lỗi bad_request — đó là lỗi người dùng, không phải backend chết", async () => {
