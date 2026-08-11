@@ -17,7 +17,7 @@ import {
 } from "./schemas";
 import { AgentForgeError, extractDetail, kindFromStatus } from "./errors";
 import { logBoundary } from "./log";
-import type { ZodType } from "zod";
+import type { ZodType, ZodTypeDef } from "zod";
 
 export const KB_SNAPSHOT_LIMIT = 1000;
 
@@ -48,13 +48,13 @@ export interface RestoreInput {
   url: string;
 }
 
-interface RequestOptions {
+interface RequestOptions<T> {
   path: string;
   method?: "GET" | "POST";
   json?: unknown;
   form?: FormData;
   timeoutMs: number;
-  schema: ZodType<unknown>;
+  schema: ZodType<T, ZodTypeDef, any>;
   label: string;
 }
 
@@ -81,7 +81,7 @@ export function createClient(opts: {
   const baseUrl = opts.baseUrl.replace(/\/$/, "");
   const doFetch = opts.fetchImpl ?? fetch;
 
-  async function request<T>(o: RequestOptions): Promise<T> {
+  async function request<T>(o: RequestOptions<T>): Promise<T> {
     const url = `${baseUrl}${o.path}`;
     const started = Date.now();
     let res: Response;
@@ -131,7 +131,7 @@ export function createClient(opts: {
     }
 
     logBoundary(`${o.label}:ok`, { ms: Date.now() - started });
-    return parsed.data as T;
+    return parsed.data;
   }
 
   return {

@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { createClient, KB_SNAPSHOT_LIMIT } from "./client";
 import { AgentForgeError } from "./errors";
-import { RAW_CRAWL, RAW_KB } from "./__fixtures__/responses";
+import { RAW_BRAND, RAW_BUILD, RAW_CRAWL, RAW_EVAL, RAW_KB } from "./__fixtures__/responses";
 
 const BASE = "http://127.0.0.1:8444";
 
@@ -11,6 +11,21 @@ function jsonRes(body: unknown, status = 200) {
     headers: { "content-type": "application/json" },
   });
 }
+
+describe("createClient.createSession", () => {
+  it("POST không kèm body, trả về sessionId dạng camelCase", async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(jsonRes({ session_id: "s1" }));
+    const client = createClient({ baseUrl: BASE, fetchImpl });
+
+    const result = await client.createSession();
+
+    const [url, init] = fetchImpl.mock.calls[0]!;
+    expect(url).toBe(`${BASE}/api/sessions`);
+    expect(init.method).toBe("POST");
+    expect(init.body).toBeUndefined();
+    expect(result).toEqual({ sessionId: "s1" });
+  });
+});
 
 describe("createClient.crawl", () => {
   it("POST đúng path và body", async () => {
@@ -72,6 +87,58 @@ describe("createClient.crawl", () => {
   });
 });
 
+describe("createClient.brand", () => {
+  it("GET có encode session id chứa ký tự đặc biệt trong path", async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(jsonRes(RAW_BRAND));
+    const client = createClient({ baseUrl: BASE, fetchImpl });
+
+    const result = await client.brand("a b/c");
+
+    const [url, init] = fetchImpl.mock.calls[0]!;
+    expect(url).toBe(`${BASE}/api/brand/a%20b%2Fc`);
+    expect(init.method).toBe("GET");
+    expect(result).toEqual({
+      name: "Sen Spa",
+      logo: "🌸",
+      logoLetter: "S",
+      color: "#203ADC",
+      industry: "spa",
+    });
+  });
+});
+
+describe("createClient.build", () => {
+  it("POST đúng path và body, trả về persona.avatarLetter và systemPrompt dạng camelCase", async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(jsonRes(RAW_BUILD));
+    const client = createClient({ baseUrl: BASE, fetchImpl });
+
+    const result = await client.build({ sessionId: "sid", product: "chat" });
+
+    const [url, init] = fetchImpl.mock.calls[0]!;
+    expect(url).toBe(`${BASE}/api/build`);
+    expect(init.method).toBe("POST");
+    expect(JSON.parse(init.body as string)).toEqual({ session_id: "sid", product: "chat" });
+    expect(result.persona.avatarLetter).toBe("S");
+    expect(result.systemPrompt).toBe(RAW_BUILD.system_prompt);
+  });
+});
+
+describe("createClient.evaluate", () => {
+  it("POST đúng path và body, trả về summary.passRate và results[].passed dạng camelCase", async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(jsonRes(RAW_EVAL));
+    const client = createClient({ baseUrl: BASE, fetchImpl });
+
+    const result = await client.evaluate({ sessionId: "sid", product: "voice" });
+
+    const [url, init] = fetchImpl.mock.calls[0]!;
+    expect(url).toBe(`${BASE}/api/eval`);
+    expect(init.method).toBe("POST");
+    expect(JSON.parse(init.body as string)).toEqual({ session_id: "sid", product: "voice" });
+    expect(result.summary.passRate).toBe(RAW_EVAL.summary.pass_rate);
+    expect(result.results[0]?.passed).toBe(true);
+  });
+});
+
 describe("createClient.kbSnapshot", () => {
   it("GET kèm session_id và limit tối đa", async () => {
     const fetchImpl = vi.fn().mockResolvedValue(jsonRes(RAW_KB));
@@ -127,8 +194,10 @@ describe("createClient.uploadDocument", () => {
 
     const [url, init] = fetchImpl.mock.calls[0]!;
     expect(url).toBe(`${BASE}/api/documents`);
+    expect(init.method).toBe("POST");
     expect(init.body).toBeInstanceOf(FormData);
     expect((init.body as FormData).get("session_id")).toBe("sid");
+    expect((init.body as FormData).get("file")).toBe(file);
     expect(result.chunks).toBe(4);
   });
 });
@@ -152,9 +221,15 @@ describe("createClient.restore", () => {
     });
 
     const body = JSON.parse(fetchImpl.mock.calls[0]![1].body as string);
-    expect(body.session_id).toBe("sid");
-    expect(body.system_prompt).toBe("Bạn là Sen");
-    expect(body.chunks).toEqual(["c1", "c2"]);
-    expect(body.kb_facts).toEqual(["f1"]);
+    expect(body).toEqual({
+      session_id: "sid",
+      system_prompt: "Bạn là Sen",
+      guardrails: ["g1"],
+      chunks: ["c1", "c2"],
+      kb_facts: ["f1"],
+      brand: { name: "Sen Spa", logo_letter: "S", color: "#203ADC" },
+      persona: { name: "Sen", role: "Tư vấn", description: "d", avatar_letter: "S" },
+      url: "https://senspa.vn",
+    });
   });
 });
