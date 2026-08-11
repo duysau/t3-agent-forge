@@ -89,6 +89,77 @@ describe("source.crawl", () => {
     ).rejects.toThrow(/URL không hợp lệ/);
   });
 
+  it("lỗi upstream map đúng sang code BAD_GATEWAY", async () => {
+    const bad: AgentForgeSource = {
+      ...createFixtureSource("senspa", { delayMs: 0 }),
+      kind: "live",
+      crawl: vi.fn().mockRejectedValue(new AgentForgeError("upstream", "Cloudflare chặn", 502)),
+    };
+
+    // fallbackEnabled = false: kind "upstream" thuộc FALLBACK_KINDS, nếu bật
+    // fallback thì lỗi sẽ bị withFallback nuốt và tụt hạng thay vì nổi lên
+    // tới trpc error boundary — tắt fallback để ép lỗi thật sự đi qua mapErrors.
+    const err: unknown = await caller(bad, false)
+      .source.crawl({ url: "https://x.vn", mode: "live" })
+      .then(() => null, (e: unknown) => e);
+
+    expect(err).toBeInstanceOf(TRPCError);
+    expect((err as TRPCError).code).toBe("BAD_GATEWAY");
+  });
+
+  it("lỗi timeout map đúng sang code TIMEOUT", async () => {
+    const bad: AgentForgeSource = {
+      ...createFixtureSource("senspa", { delayMs: 0 }),
+      kind: "live",
+      crawl: vi.fn().mockRejectedValue(new AgentForgeError("timeout", "Backend không phản hồi", null)),
+    };
+
+    // Cùng lý do tắt fallback như trên: "timeout" cũng thuộc FALLBACK_KINDS.
+    const err: unknown = await caller(bad, false)
+      .source.crawl({ url: "https://x.vn", mode: "live" })
+      .then(() => null, (e: unknown) => e);
+
+    expect(err).toBeInstanceOf(TRPCError);
+    expect((err as TRPCError).code).toBe("TIMEOUT");
+  });
+
+  it("lỗi bad_request map đúng sang code BAD_REQUEST và giữ nguyên detail", async () => {
+    const bad: AgentForgeSource = {
+      ...createFixtureSource("senspa", { delayMs: 0 }),
+      kind: "live",
+      crawl: vi.fn().mockRejectedValue(new AgentForgeError("bad_request", "URL không hợp lệ", 400)),
+    };
+
+    const err: unknown = await caller(bad)
+      .source.crawl({ url: "https://x.vn", mode: "live" })
+      .then(() => null, (e: unknown) => e);
+
+    expect(err).toBeInstanceOf(TRPCError);
+    expect((err as TRPCError).code).toBe("BAD_REQUEST");
+    expect((err as Error).message).toBe("URL không hợp lệ");
+  });
+
+  it("kind rơi vào default của mapping (vd contract) thì trả INTERNAL_SERVER_ERROR nhưng giữ detail, không thay bằng message chung", async () => {
+    const bad: AgentForgeSource = {
+      ...createFixtureSource("senspa", { delayMs: 0 }),
+      kind: "live",
+      crawl: vi
+        .fn()
+        .mockRejectedValue(new AgentForgeError("contract", "Backend đổi hình dạng response", null)),
+    };
+
+    const err: unknown = await caller(bad)
+      .source.crawl({ url: "https://x.vn", mode: "live" })
+      .then(() => null, (e: unknown) => e);
+
+    expect(err).toBeInstanceOf(TRPCError);
+    expect((err as TRPCError).code).toBe("INTERNAL_SERVER_ERROR");
+    // "contract" nghĩa là backend đổi hình dạng response — detail này phải tới
+    // được developer, không được thay bằng GENERIC_ERROR_MESSAGE như lỗi lạ.
+    expect((err as Error).message).toBe("Backend đổi hình dạng response");
+    expect((err as Error).message).not.toBe(GENERIC_ERROR_MESSAGE);
+  });
+
   it("từ chối URL không đúng dạng ngay ở input schema", async () => {
     const api = caller(createFixtureSource("senspa", { delayMs: 0 }));
 
