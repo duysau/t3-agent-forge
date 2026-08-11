@@ -44,14 +44,6 @@ export async function ingestDocument(
 
   const uploaded = await deps.source.uploadDocument({ sessionId, file: input.file });
 
-  await deps.db.insert(documents).values({
-    agentId: agg.agent.id,
-    documentId: uploaded.documentId,
-    fileName: uploaded.fileName,
-    chunkCount: uploaded.chunks,
-    pageCount: uploaded.pages,
-  });
-
   // `/api/documents` chỉ trả SỐ LƯỢNG chunk, không trả text. Muốn T3 sở hữu KB
   // thì phải chụp lại cả collection rồi thay thế — chèn thêm sẽ nhân bản phần web.
   const snapshot = await deps.source.kbSnapshot(sessionId);
@@ -65,6 +57,17 @@ export async function ingestDocument(
       sourceUrl: c.sourceUrl,
     })),
   );
+
+  // Chỉ ghi lại việc đã nạp file SAU KHI replaceKbChunks thành công — ghi
+  // trước sẽ khiến bảng documents nói đã nạp trong khi kbChunks có thể chưa
+  // hề nhận nội dung nếu kbSnapshot/replaceKbChunks vỡ giữa đường.
+  await deps.db.insert(documents).values({
+    agentId: agg.agent.id,
+    documentId: uploaded.documentId,
+    fileName: uploaded.fileName,
+    chunkCount: uploaded.chunks,
+    pageCount: uploaded.pages,
+  });
 
   return {
     fileName: uploaded.fileName,

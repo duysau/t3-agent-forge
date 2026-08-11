@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { eq } from "drizzle-orm";
 import { makeTestDb } from "~/test/db";
 import type { Db } from "~/server/db/types";
+import { documents } from "~/server/db/schema";
 import { createFixtureSource } from "~/server/agentforge/fixture-source";
 import { AgentForgeError } from "~/server/agentforge/errors";
 import type { AgentForgeSource } from "~/server/agentforge/source";
@@ -105,6 +107,16 @@ describe("ingestDocument", () => {
     );
 
     expect(out.fileName).toBe("menu.pdf");
+
+    const rows = await db.select().from(documents).where(eq(documents.agentId, agent.id));
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({
+      agentId: agent.id,
+      documentId: "abc123",
+      fileName: "menu.pdf",
+      chunkCount: 5,
+      pageCount: 3,
+    });
   });
 
   it("slug không tồn tại thì ném lỗi rõ ràng", async () => {
@@ -168,5 +180,9 @@ describe("ingestDocument", () => {
 
     const agg = await getAgentAggregate(db, agent.slug);
     expect(agg?.chunks).toHaveLength(2);
+    expect(agg?.chunks.map((c) => ({ content: c.content, source: c.source }))).toEqual([
+      { content: "web 1", source: "web" },
+      { content: "web 2", source: "web" },
+    ]);
   });
 });
