@@ -1,6 +1,7 @@
 import { updateAgent } from "~/server/db/queries/agents";
 import { AgentForgeError, isSessionMissing } from "~/server/agentforge/errors";
 import { logBoundary } from "~/server/agentforge/log";
+import { personaToWire, type Persona } from "~/server/agentforge/schemas";
 import type { AgentForgeSource } from "~/server/agentforge/source";
 import type { Db } from "~/server/db/types";
 import { getAgentAggregateById } from "./agent-store";
@@ -61,13 +62,19 @@ export async function withSessionRecovery<T>(
       guardrails: (agg.agent.guardrails as string[] | null) ?? [],
       chunks: agg.chunks.map((c) => c.content),
       kbFacts: (agg.agent.kbFacts as string[] | null) ?? [],
+      // Cả brand và persona phải ở wire shape snake_case của endpoint restore.
+      // `logo` (emoji) cũng đi kèm: `saveBuildArtifacts` có lưu nó, nên bỏ nó ở
+      // đây là để session hồi sinh mất logo mà agent đã có.
       brand: {
         name: agg.agent.brandName,
+        logo: agg.agent.brandLogoEmoji,
         logo_letter: agg.agent.brandLogoLetter,
         color: agg.agent.brandColor,
         industry: agg.agent.industry,
       },
-      persona: (agg.agent.persona as Record<string, unknown> | null) ?? {},
+      // Persona được LƯU ở dạng đã transform (camelCase `avatarLetter`, xem
+      // `personaSchema`), nên phải đổi ngược trước khi gửi đi.
+      persona: personaToWire(agg.agent.persona as Persona | null),
       url: agg.agent.sourceUrl,
     });
 

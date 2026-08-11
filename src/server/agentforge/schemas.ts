@@ -60,6 +60,48 @@ const personaSchema = z
     avatarLetter: p.avatar_letter ?? p.name.slice(0, 1).toUpperCase(),
   }));
 
+/**
+ * Wire shape của `brand` và `persona` trong `POST /api/sessions/restore` —
+ * snake_case, theo `endpoint.md` §`/api/sessions/restore`.
+ *
+ * Hai field này từng là `Record<string, unknown>` trong `RestoreInput`, lỗ hổng
+ * không-kiểu duy nhất ở biên này, và chính nó đã để một `persona` camelCase
+ * (`avatarLetter`) đi thẳng tới một API snake_case mà TypeScript không kêu gì.
+ */
+export interface RestoreBrand {
+  name: string | null;
+  logo: string | null;
+  logo_letter: string | null;
+  color: string | null;
+  industry: string | null;
+}
+
+export interface RestorePersona {
+  name: string;
+  role: string;
+  description: string;
+  avatar_letter: string | null;
+}
+
+/**
+ * Đổi NGƯỢC `Persona` (đã transform, camelCase) về wire shape snake_case.
+ *
+ * Đặt ngay cạnh `personaSchema` có chủ đích: hai hàm là một cặp đối xứng, và
+ * để chúng ở hai file khác nhau là cách chắc chắn nhất để lần sau chỉ sửa một nửa.
+ *
+ * `null` khi agent chưa build (chưa có persona nào để gửi) — `persona` là field
+ * optional của endpoint restore.
+ */
+export function personaToWire(persona: Persona | null): RestorePersona | null {
+  if (!persona) return null;
+  return {
+    name: persona.name,
+    role: persona.role,
+    description: persona.description,
+    avatar_letter: persona.avatarLetter,
+  };
+}
+
 export const buildResponse = z
   .object({
     brand: brandResponse,

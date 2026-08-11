@@ -65,6 +65,63 @@ describe("withSessionRecovery", () => {
     expect(payload.url).toBe("https://senspa.vn");
   });
 
+  /**
+   * `persona` và `brand` đi thẳng vào body JSON của `POST /api/sessions/restore`,
+   * một API snake_case. Persona được LƯU ở dạng đã transform (`avatarLetter`), nên
+   * nếu không đổi ngược thì backend nhận một field nó không biết và mất avatar.
+   * Test cũ tên là "restore gửi đủ chunks và artifacts đã lưu" nhưng chưa từng
+   * chạm tới hai field này — nên lỗi sống sót qua cả 12 task.
+   */
+  it("restore gửi persona và brand ở wire shape snake_case, kèm cả emoji logo", async () => {
+    const agent = await h.seedAgent();
+    const api = h.caller();
+    await api.agent.setProduct({ slug: agent.slug, product: "chat" });
+    await api.agent.build({ slug: agent.slug });
+
+    const restore = vi.fn().mockResolvedValue({ sessionId: "sid-moi", chunksIngested: 2 });
+    const fn = vi
+      .fn()
+      .mockRejectedValueOnce(new AgentForgeError("session_missing", "x", 404))
+      .mockResolvedValueOnce("ok");
+
+    await withSessionRecovery({ db: h.db, source: h.source({ restore }) }, agent.id, fn);
+
+    const payload = restore.mock.calls[0]![0] as {
+      persona: Record<string, unknown>;
+      brand: Record<string, unknown>;
+    };
+
+    expect(payload.persona).toEqual({
+      name: "Sen",
+      role: "Nhân viên tư vấn Sen Spa",
+      description: expect.any(String),
+      avatar_letter: "S",
+    });
+    expect(payload.persona).not.toHaveProperty("avatarLetter");
+
+    expect(payload.brand).toEqual({
+      name: "Sen Spa",
+      logo: "🌸",
+      logo_letter: "S",
+      color: "#203ADC",
+      industry: "spa",
+    });
+  });
+
+  it("agent chưa build thì persona là null, không phải một object rỗng vô nghĩa", async () => {
+    const agent = await h.seedAgent();
+    const restore = vi.fn().mockResolvedValue({ sessionId: "sid-moi", chunksIngested: 2 });
+    const fn = vi
+      .fn()
+      .mockRejectedValueOnce(new AgentForgeError("session_missing", "x", 404))
+      .mockResolvedValueOnce("ok");
+
+    await withSessionRecovery({ db: h.db, source: h.source({ restore }) }, agent.id, fn);
+
+    const payload = restore.mock.calls[0]![0] as { persona: unknown };
+    expect(payload.persona).toBeNull();
+  });
+
   it("lưu sessionId mới vào DB để lần sau không phải hồi sinh lại", async () => {
     const agent = await h.seedAgent();
     const restore = vi.fn().mockResolvedValue({ sessionId: "sid-moi", chunksIngested: 2 });

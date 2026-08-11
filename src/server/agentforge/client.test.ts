@@ -215,7 +215,13 @@ describe("createClient.restore", () => {
       guardrails: ["g1"],
       chunks: ["c1", "c2"],
       kbFacts: ["f1"],
-      brand: { name: "Sen Spa", logo_letter: "S", color: "#203ADC" },
+      brand: {
+        name: "Sen Spa",
+        logo: "🌸",
+        logo_letter: "S",
+        color: "#203ADC",
+        industry: "spa",
+      },
       persona: { name: "Sen", role: "Tư vấn", description: "d", avatar_letter: "S" },
       url: "https://senspa.vn",
     });
@@ -227,7 +233,13 @@ describe("createClient.restore", () => {
       guardrails: ["g1"],
       chunks: ["c1", "c2"],
       kb_facts: ["f1"],
-      brand: { name: "Sen Spa", logo_letter: "S", color: "#203ADC" },
+      brand: {
+        name: "Sen Spa",
+        logo: "🌸",
+        logo_letter: "S",
+        color: "#203ADC",
+        industry: "spa",
+      },
       persona: { name: "Sen", role: "Tư vấn", description: "d", avatar_letter: "S" },
       url: "https://senspa.vn",
     });
