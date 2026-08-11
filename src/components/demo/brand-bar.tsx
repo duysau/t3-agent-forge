@@ -48,11 +48,11 @@ export function BrandBar({
       // Màu brand là DỮ LIỆU lấy từ website khách lúc chạy, không phải design token —
       // Tailwind không sinh được class cho giá trị nó chưa thấy lúc build.
       style={{ background: color }}
-      className="flex flex-wrap items-center gap-3 px-5 py-4 text-white"
+      className="flex flex-wrap items-center gap-3 px-5 py-3.5 text-white"
     >
       <span
         data-testid="brand-logo"
-        className="grid size-10 place-items-center rounded-xl bg-white/20 text-lg font-bold"
+        className="grid size-9 place-items-center rounded-[9px] bg-white/20 text-base font-extrabold"
       >
         {/*
           `||` chứ không phải `??`: `??` chỉ rơi qua với null/undefined, nên một
@@ -63,13 +63,17 @@ export function BrandBar({
         {emoji || letter || "A"}
       </span>
       <div className="flex-1">
-        <div className="font-bold">{name || "Agent demo"}</div>
-        <div className="text-[13px] text-white/80">
+        <div className="text-base font-extrabold">{name || "Agent demo"}</div>
+        <div className="text-xs opacity-85">
           {product === "voice" ? "Tổng đài tự động" : "Trợ lý tư vấn trực tuyến"}
         </div>
       </div>
       {reason && <DegradedBadge reason={reason} />}
-      {product && <span className="text-xs text-white/80">{PRODUCT_LABEL[product]}</span>}
+      {product && (
+        <span className="ml-auto flex items-center gap-1.5 text-[11px] opacity-75">
+          {PRODUCT_LABEL[product]}
+        </span>
+      )}
     </div>
   );
 }

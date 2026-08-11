@@ -21,14 +21,20 @@ export function ShareBox({
   qrError?: string | null;
 }) {
   return (
-    <div className="mt-6 rounded-xl border border-border p-5">
-      <h4 className="text-sm font-bold text-gray-900">Chia sẻ trang demo</h4>
-      <p className="mt-1 text-[13px] text-muted-foreground">
+    <div className="mt-6 rounded-xl border border-fci-100 bg-fci-50 px-[22px] py-5">
+      <h4 className="mb-1 text-[15px] font-extrabold text-fci-800">Chia sẻ trang demo</h4>
+      <p className="mb-3.5 text-[13.5px] text-gray-600">
         Gửi link này cho đồng nghiệp để xem thử — không cần đăng nhập.
       </p>
 
-      <div className="mt-3 flex flex-wrap items-center gap-2">
-        <code className="flex-1 truncate rounded-lg bg-muted px-3 py-2 font-mono text-[13px]">
+      <div className="flex flex-wrap gap-2.5">
+        {/*
+          `{url}` phải là NÚT VĂN BẢN DUY NHẤT trong ô này — không bọc thêm span
+          nào quanh nó. `screen.getByText(URL)` (share-box.test.tsx và
+          step4-demo.test.tsx) tìm theo text node trực tiếp của một phần tử; tách
+          URL ra nhiều phần tử con là cách chắc chắn nhất làm test đó hết khớp.
+        */}
+        <code className="flex min-w-[260px] flex-1 items-center gap-2.5 rounded-lg border border-gray-300 bg-white px-3.5 py-2.5 font-mono text-[13.5px] text-gray-600">
           {url}
         </code>
         <Button variant="outline" size="sm" onClick={onCopy}>
