@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { TRPCError } from "@trpc/server";
 import { AgentForgeError } from "~/server/agentforge/errors";
 import { GENERIC_ERROR_MESSAGE } from "~/server/api/trpc";
-import { getAgentById } from "~/server/db/queries/agents";
+import { getAgentById, updateAgent } from "~/server/db/queries/agents";
 import { CRAWL_FIXTURE, makeHarness, type Harness } from "~/test/harness";
 import { withSessionRecovery } from "./session-bridge";
 
@@ -219,7 +219,11 @@ describe("lời hướng dẫn của withSessionRecovery đi được qua biên 
   });
 
   it("chat với agent thiếu session Python cũng giữ nguyên hướng dẫn", async () => {
+    // Phải đẩy status sang "built" để đi qua chốt "agent chưa dựng" của `chat.send`
+    // — nếu không thì gặp chốt ĐÓ trước, và test này sẽ không kiểm được thứ nó
+    // định kiểm. Đúng cảnh cần dựng: agent đã dựng nhưng session Python đã mất.
     const agent = await h.seedAgent({ crawl: { ...CRAWL_FIXTURE, sessionId: "" } });
+    await updateAgent(h.db, agent.id, { status: "built", systemPrompt: "Bạn là Sen" });
 
     const err = await catchError(
       h.caller().chat.send({ slug: agent.slug, message: "hi", history: [] }),
