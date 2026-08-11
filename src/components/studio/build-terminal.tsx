@@ -4,9 +4,9 @@ export interface TerminalLine {
 }
 
 const TONE: Record<TerminalLine["kind"], string> = {
-  info: "text-gray-400",
-  ok: "text-success",
-  warn: "text-warning",
+  info: "text-term-dim",
+  ok: "text-term-green",
+  warn: "text-term-yellow",
 };
 
 /**
@@ -22,24 +22,24 @@ export function BuildTerminal({
   busy: { label: string; elapsedSeconds: number } | null;
 }) {
   return (
-    <div className="overflow-hidden rounded-xl border border-gray-800 bg-gray-900">
-      <div className="flex items-center gap-1.5 border-b border-gray-800 px-3 py-2">
-        <span className="size-2.5 rounded-full bg-destructive" />
-        <span className="size-2.5 rounded-full bg-warning" />
-        <span className="size-2.5 rounded-full bg-success" />
-        <span className="ml-2 font-mono text-xs text-gray-400">agentforge · build</span>
+    <div className="overflow-hidden rounded-xl bg-term-bg shadow-lg">
+      <div className="flex items-center gap-[7px] border-b border-term-border bg-term-bar px-4 py-3">
+        <span className="size-3 rounded-full bg-destructive" />
+        <span className="size-3 rounded-full bg-warning" />
+        <span className="size-3 rounded-full bg-success" />
+        <span className="ml-2.5 font-mono text-[13px] text-term-dim">agentforge · build</span>
       </div>
-      <ul className="space-y-1 p-4 font-mono text-[13px]">
+      <ul className="max-h-[340px] min-h-[230px] space-y-1 overflow-y-auto px-5 py-[18px] font-mono text-[13.5px] leading-[1.85] text-term-fg">
         {lines.map((line, i) => (
           <li key={`${i}-${line.text}`} className={TONE[line.kind]}>
             {line.text}
           </li>
         ))}
         {busy && (
-          <li className="flex items-center gap-2 text-fci-300">
-            <span className="size-1.5 animate-pulse rounded-full bg-fci-300" />
+          <li className="flex items-center gap-2 text-term-blue">
+            <span className="size-1.5 animate-pulse rounded-full bg-term-blue" />
             {busy.label}
-            <span className="text-gray-500">· {busy.elapsedSeconds} giây</span>
+            <span className="text-term-dim">· {busy.elapsedSeconds} giây</span>
           </li>
         )}
       </ul>
