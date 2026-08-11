@@ -18,16 +18,18 @@ const SUMMARY: EvalResult["summary"] = {
 };
 
 describe("EvalSummary", () => {
-  it("hiện đúng số của từng nhóm, không lẫn giữa các nhóm", () => {
+  it("hiện đúng số của từng nhóm dưới đúng nhãn của nó, không lẫn giữa các nhóm", () => {
     render(<EvalSummary summary={SUMMARY} />);
-    expect(screen.getByText("7/8")).toBeInTheDocument();
-    expect(screen.getByText("5/6")).toBeInTheDocument();
-    expect(screen.getByText("4/6")).toBeInTheDocument();
+    const cell = (label: string) => screen.getByText(label).parentElement;
+    expect(cell("Grounded")).toHaveTextContent("7/8");
+    expect(cell("Câu bẫy")).toHaveTextContent("5/6");
+    expect(cell("Edge case")).toHaveTextContent("4/6");
   });
 
-  it("hiện điểm trung bình với một chữ số sau dấu phẩy", () => {
+  it("hiện điểm trung bình với một chữ số sau dấu phẩy, dưới đúng nhãn của nó", () => {
     render(<EvalSummary summary={SUMMARY} />);
-    expect(screen.getByText("4.3")).toBeInTheDocument();
+    const cell = (label: string) => screen.getByText(label).parentElement;
+    expect(cell("Điểm TB /5")).toHaveTextContent("4.3");
   });
 
   it("hiện tổng số bài đạt trên tổng số bài", () => {
