@@ -1,7 +1,7 @@
 "use client";
 
 import { api } from "~/trpc/react";
-import type { VoiceId } from "~/lib/voices";
+import { DEFAULT_VOICE_ID, type VoiceId } from "~/lib/voices";
 import { Step2ProductView } from "./step2-product-view";
 
 export function Step2Product({
@@ -38,7 +38,7 @@ export function Step2Product({
           product,
           // voiceId ở wizard là string thô (Task 13 chưa biết về VoiceId); router
           // xác thực lại bằng zod enum nên ép kiểu ở đây là an toàn.
-          voiceId: product === "voice" ? ((voiceId ?? "std_kimngan") as VoiceId) : undefined,
+          voiceId: product === "voice" ? ((voiceId ?? DEFAULT_VOICE_ID) as VoiceId) : undefined,
         });
       }}
     />
