@@ -5,6 +5,10 @@ import { env } from "~/env";
 import { appRouter } from "~/server/api/root";
 import { createTRPCContext } from "~/server/api/trpc";
 
+// Backend cần tới 180s cho crawl và 300s cho eval (endpoint.md).
+// Vercel Hobby chặn ở 60s: crawl/eval sẽ chết ở đó — pitch chạy local hoặc Vercel Pro.
+export const maxDuration = 300;
+
 /**
  * This wraps the `createTRPCContext` helper and provides the required context for the tRPC API when
  * handling a HTTP request (e.g. when you make requests from Client Components).

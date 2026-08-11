@@ -6,30 +6,37 @@
  * TL;DR - This is where all the tRPC server stuff is created and plugged in. The pieces you will
  * need to use are documented accordingly near the end.
  */
-import { initTRPC } from "@trpc/server";
+import { initTRPC, TRPCError } from "@trpc/server";
 import superjson from "superjson";
 import { ZodError } from "zod";
-
 import { db } from "~/server/db";
+import { env } from "~/env";
+import { resolveSource } from "~/server/agentforge/resolve";
+import { AgentForgeError } from "~/server/agentforge/errors";
+import type { Db } from "~/server/db/types";
+import type { AgentForgeSource } from "~/server/agentforge/source";
 
 /**
  * 1. CONTEXT
  *
  * This section defines the "contexts" that are available in the backend API.
  *
- * These allow you to access things when processing a request, like the database, the session, etc.
- *
- * This helper generates the "internals" for a tRPC context. The API handler and RSC clients each
- * wrap this and provides the required context.
+ * These allow you to access things when processing a request, like the database, the AgentForge
+ * source, and whether fallback to fixture data is enabled.
  *
  * @see https://trpc.io/docs/server/context
  */
-export const createTRPCContext = async (opts: { headers: Headers }) => {
-  return {
-    db,
-    ...opts,
-  };
-};
+export interface TrpcContext {
+  db: Db;
+  source: AgentForgeSource;
+  fallbackEnabled: boolean;
+}
+
+export const createTRPCContext = async (_opts: { headers: Headers }): Promise<TrpcContext> => ({
+  db: db as unknown as Db,
+  source: resolveSource({ mode: "live", baseUrl: env.PYTHON_API_URL }),
+  fallbackEnabled: env.FALLBACK_TO_FIXTURE,
+});
 
 /**
  * 2. INITIALIZATION
@@ -38,15 +45,16 @@ export const createTRPCContext = async (opts: { headers: Headers }) => {
  * ZodErrors so that you get typesafety on the frontend if your procedure fails due to validation
  * errors on the backend.
  */
-const t = initTRPC.context<typeof createTRPCContext>().create({
+const t = initTRPC.context<TrpcContext>().create({
   transformer: superjson,
   errorFormatter({ shape, error }) {
+    const cause = error.cause;
     return {
       ...shape,
       data: {
         ...shape.data,
-        zodError:
-          error.cause instanceof ZodError ? error.cause.flatten() : null,
+        zodError: cause instanceof ZodError ? cause.flatten() : null,
+        agentForgeKind: cause instanceof AgentForgeError ? cause.kind : null,
       },
     };
   },
@@ -73,27 +81,22 @@ export const createCallerFactory = t.createCallerFactory;
  */
 export const createTRPCRouter = t.router;
 
-/**
- * Middleware for timing procedure execution and adding an artificial delay in development.
- *
- * You can remove this if you don't like it, but it can help catch unwanted waterfalls by simulating
- * network latency that would occur in production but not in local development.
- */
-const timingMiddleware = t.middleware(async ({ next, path }) => {
-  const start = Date.now();
-
-  if (t._config.isDev) {
-    // artificial delay in dev
-    const waitMs = Math.floor(Math.random() * 400) + 100;
-    await new Promise((resolve) => setTimeout(resolve, waitMs));
+/** Đổi `AgentForgeError` thành `TRPCError` đúng code, một lần cho mọi procedure. */
+const mapAgentForgeErrors = t.middleware(async ({ next }) => {
+  try {
+    return await next();
+  } catch (err) {
+    if (!(err instanceof AgentForgeError)) throw err;
+    const code =
+      err.kind === "bad_request"
+        ? "BAD_REQUEST"
+        : err.kind === "upstream"
+          ? "BAD_GATEWAY"
+          : err.kind === "timeout"
+            ? "TIMEOUT"
+            : "INTERNAL_SERVER_ERROR";
+    throw new TRPCError({ code, message: err.detail ?? err.message, cause: err });
   }
-
-  const result = await next();
-
-  const end = Date.now();
-  console.log(`[TRPC] ${path} took ${end - start}ms to execute`);
-
-  return result;
 });
 
 /**
@@ -103,4 +106,4 @@ const timingMiddleware = t.middleware(async ({ next, path }) => {
  * guarantee that a user querying is authorized, but you can still access user session data if they
  * are logged in.
  */
-export const publicProcedure = t.procedure.use(timingMiddleware);
+export const publicProcedure = t.procedure.use(mapAgentForgeErrors);

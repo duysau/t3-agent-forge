@@ -13,23 +13,6 @@ import {
 
 export const createTable = pgTableCreator((name) => `agentforge_${name}`);
 
-// LEGACY (scaffold example table, originally `web_post`): kept only so the
-// untouched example `post` router/component still type-checks. Remove this
-// table together with `~/server/api/routers/post.ts` and `~/app/_components/post.tsx`
-// once those are deleted.
-export const posts = createTable(
-  "post",
-  {
-    id: integer("id").primaryKey().generatedByDefaultAsIdentity(),
-    name: varchar("name", { length: 256 }),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .notNull()
-      .$defaultFn(() => new Date()),
-    updatedAt: timestamp("updated_at", { withTimezone: true }).$onUpdate(() => new Date()),
-  },
-  (t) => [index("name_idx").on(t.name)],
-);
-
 export const agents = createTable(
   "agents",
   {
