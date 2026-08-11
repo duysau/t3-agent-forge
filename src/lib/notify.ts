@@ -9,7 +9,3 @@ import { toast } from "sonner";
 export function notifyOk(message: string): void {
   toast.success(message);
 }
-
-export function notifyWarn(message: string): void {
-  toast.warning(message);
-}
