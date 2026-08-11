@@ -84,6 +84,7 @@ export default async function DemoPage({ params }: { params: Promise<{ slug: str
           emoji={d.brandLogoEmoji}
           color={d.brandColor}
           product={d.product}
+          mode={d.mode}
           degraded={d.degraded}
         />
         {/*

@@ -52,6 +52,30 @@ describe("demo.bySlug", () => {
     expect(demo.degraded).toBe(true);
   });
 
+  /**
+   * Test trên hand-seed `degraded: true`, một trạng thái mà đường crawl thật KHÔNG
+   * BAO GIỜ sinh ra cho fixture mode được chọn có chủ đích: `withFallback` chỉ báo
+   * degraded khi đã tụt hạng sau một thất bại thật, và nó không tụt hạng một nguồn
+   * vốn đã là fixture. Nên nó pass vì lý do sai.
+   *
+   * Test này đi qua chính `source.crawl` với mode "fixture" — đúng cái mà nút "Hoặc
+   * dùng kịch bản mẫu" ở Bước 1 gọi — và kiểm rằng payload mang `mode` để trang
+   * công khai dán nhãn được, dù `degraded` là false.
+   */
+  it("kịch bản mẫu chọn có chủ đích: degraded false nhưng mode fixture vẫn đi tới payload", async () => {
+    const api = h.caller();
+    const crawled = await api.source.crawl({
+      url: "https://senspa.vn",
+      mode: "fixture",
+      fixtureKey: "senspa",
+    });
+
+    const demo = await api.demo.bySlug({ slug: crawled.slug });
+
+    expect(demo.degraded).toBe(false);
+    expect(demo.mode).toBe("fixture");
+  });
+
   it("slug không tồn tại thì NOT_FOUND", async () => {
     await expect(h.caller().demo.bySlug({ slug: "khongcogi12" })).rejects.toThrow(
       /NOT_FOUND|không tìm/i,

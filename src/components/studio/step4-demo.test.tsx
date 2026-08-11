@@ -41,6 +41,7 @@ const PAYLOAD: DemoPayload = {
   status: "evaluated",
   product: "chat",
   voiceId: null,
+  mode: "live",
   degraded: false,
   brandName: "Suối Khoáng Nóng",
   brandColor: "#0ea5e9",

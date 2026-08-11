@@ -56,6 +56,7 @@ const PAYLOAD: DemoPayload = {
   status: "evaluated",
   product: "chat",
   voiceId: null,
+  mode: "live",
   degraded: false,
   brandName: "Suối Khoáng Nóng",
   brandColor: "#0ea5e9",
@@ -130,6 +131,22 @@ describe("DemoPage", () => {
 
     expect(screen.getByPlaceholderText(/Nhập câu hỏi/)).toBeInTheDocument();
     expect(screen.queryByTestId("not-built-notice")).not.toBeInTheDocument();
+  });
+
+  /**
+   * Đường crawl thật KHÔNG BAO GIỜ sinh `degraded: true` cho fixture mode được
+   * chọn có chủ đích (`resolve.ts` chỉ báo degraded khi đã tụt hạng sau thất bại
+   * thật). Nên `degraded: false` ở đây là trạng thái THẬT của kịch bản đó, và badge
+   * vẫn phải hiện — nếu không, một link chia sẻ vẽ brand fixture kèm bảng điểm 20
+   * bài mà người xem không có cách nào biết đó là dữ liệu mẫu.
+   */
+  it("agent mode fixture hiện badge dữ liệu mẫu dù degraded false", async () => {
+    demoBySlug.mockResolvedValueOnce({ ...PAYLOAD, mode: "fixture", degraded: false });
+
+    render(await loadPage());
+
+    expect(screen.getByText(/Dữ liệu mẫu/)).toBeInTheDocument();
+    expect(screen.getByText(/kịch bản chạy offline/)).toBeInTheDocument();
   });
 
   it("TRPCError NOT_FOUND thì gọi notFound(), không tự vẽ trang", async () => {

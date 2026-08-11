@@ -69,6 +69,7 @@ export function Step4Demo({ slug, onBack }: { slug: string; onBack: () => void }
             emoji={d.brandLogoEmoji}
             color={d.brandColor}
             product={d.product}
+            mode={d.mode}
             degraded={d.degraded}
           />
           {/* Cùng quy tắc với trang công khai: chưa dựng thì không có ô chat. */}

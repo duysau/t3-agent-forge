@@ -10,6 +10,13 @@ export interface DemoPayload {
   status: string;
   product: "chat" | "voice" | null;
   voiceId: string | null;
+  /**
+   * Fixture mode được CHỌN có chủ đích trả `degraded: false`, nên `degraded` một
+   * mình không đủ để trang công khai dán nhãn dữ liệu mẫu. Sibling `source.bySlug`
+   * đã phơi `mode` từ trước; payload này thiếu nó là lý do `/s/[slug]` vẽ được một
+   * brand fixture kèm bảng điểm 20 bài mà không có nhãn nào.
+   */
+  mode: "live" | "fixture";
   degraded: boolean;
   brandName: string | null;
   brandColor: string;
@@ -50,6 +57,7 @@ export const demoRouter = createTRPCRouter({
         status: agg.agent.status,
         product: agg.agent.product as "chat" | "voice" | null,
         voiceId: agg.agent.voiceId,
+        mode: agg.agent.mode as "live" | "fixture",
         degraded: agg.agent.degraded,
         brandName: agg.agent.brandName,
         brandColor: agg.agent.brandColor,
