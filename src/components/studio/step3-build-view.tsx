@@ -44,7 +44,15 @@ export function Step3BuildView(p: Step3ViewProps) {
         {p.error && (
           <div className="mt-4 flex flex-wrap items-center gap-3 rounded-xl bg-error-muted px-4 py-3">
             <p className="flex-1 text-sm text-error-strong">{p.error}</p>
-            <Button variant="outline" size="sm" onClick={p.onRetry} disabled={p.busy !== null}>
+            {/*
+              KHÔNG có `disabled` ở đây, và đó là có chủ đích: nút này chỉ render
+              khi `error` khác null, còn `run()` xoá `error` trước khi đặt `busy`
+              và xoá `busy` trước khi đặt `error` — nên nút không bao giờ tồn tại
+              trong lúc đang chạy. Một `disabled={p.busy !== null}` ở đây là mồi
+              giả, ngụ ý rằng chính nó chặn việc bấm lại; thứ thật sự chặn là ref
+              `running` trong `run()`.
+            */}
+            <Button variant="outline" size="sm" onClick={p.onRetry}>
               Thử lại
             </Button>
           </div>

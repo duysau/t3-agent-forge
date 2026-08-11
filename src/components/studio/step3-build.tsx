@@ -8,12 +8,17 @@ import type { TerminalLine } from "./build-terminal";
 
 export function Step3Build({
   slug,
-  onEvaluated,
+  onEvaluatedChange,
   onBack,
   onContinue,
 }: {
   slug: string;
-  onEvaluated: () => void;
+  /**
+   * Bật/tắt cờ `evaluated` của wizard. Nhận boolean chứ không phải chỉ báo
+   * "xong": một lượt dựng lại phải TẮT cờ đó, nếu không stepper vẫn mở được
+   * Bước 4 trong lúc agent đang được dựng lại và bảng điểm đang là của prompt cũ.
+   */
+  onEvaluatedChange: (value: boolean) => void;
   onBack: () => void;
   onContinue: () => void;
 }) {
@@ -45,12 +50,25 @@ export function Step3Build({
   const build = api.agent.build.useMutation();
   const evaluate = api.agent.evaluate.useMutation();
 
+  // Đọc lại những gì đã lưu TRƯỚC khi quyết định có dựng hay không. Bước 3 được
+  // render có điều kiện trong page.tsx, nên "Quay lại" từ Bước 4 rồi đi tiếp lại
+  // là unmount → mount, và một lần auto-run vô điều kiện ở đây là 40+ lệnh gọi
+  // LLM cho mỗi vòng như vậy.
+  const storedRun = api.agent.evalRun.useQuery({ slug });
+  const storedArtifacts = api.agent.artifacts.useQuery({ slug });
+
   const run = useCallback(async () => {
     if (running.current) return;
     running.current = true;
 
     try {
       setError(null);
+      // Dựng lại sinh system prompt mới, nên bảng điểm cũ thôi chấm cho agent
+      // này. Đóng Bước 4 lại ngay khi lượt dựng bắt đầu — cùng quy tắc mà
+      // `agent.evalRun` áp dụng ở phía server.
+      onEvaluatedChange(false);
+      setEvalSummary(null);
+      setEvalResults([]);
       setLines([{ kind: "info", text: "Đang sinh persona, system prompt và guardrails…" }]);
       startClock("Đang dựng agent");
 
@@ -82,7 +100,7 @@ export function Step3Build({
               ]
             : []),
         ]);
-        onEvaluated();
+        onEvaluatedChange(true);
       } catch (err) {
         stopClock();
         setError(err instanceof Error ? err.message : "Không rõ nguyên nhân");
@@ -90,13 +108,53 @@ export function Step3Build({
     } finally {
       running.current = false;
     }
-  }, [build, evaluate, onEvaluated, slug, startClock, stopClock]);
+  }, [build, evaluate, onEvaluatedChange, slug, startClock, stopClock]);
 
   useEffect(() => {
     if (started.current) return;
+    // Chưa biết đã có kết quả hay chưa thì chưa được quyết định gì — chờ hai
+    // query xong. Auto-run trong lúc còn `isPending` là quay lại đúng cái bug này.
+    if (storedRun.isPending || storedArtifacts.isPending) return;
     started.current = true;
+
+    const queryError = storedRun.error ?? storedArtifacts.error;
+    if (queryError) {
+      // Không đọc được dữ liệu đã lưu thì KHÔNG đoán bằng cách dựng lại: đoán sai
+      // là tiêu tiền. Báo lỗi và để người dùng bấm "Thử lại" nếu muốn.
+      setError(queryError.message);
+      return;
+    }
+
+    const stored = storedRun.data;
+    const artifacts = storedArtifacts.data;
+    if (stored && artifacts) {
+      setArtifacts(artifacts);
+      setEvalSummary(stored.summary);
+      setEvalResults(stored.results);
+      setLines([
+        { kind: "ok", text: "Agent này đã dựng và chấm điểm xong — hiện lại kết quả đã lưu." },
+        { kind: "ok", text: `Persona: ${artifacts.persona.name} · ${artifacts.persona.role}` },
+        { kind: "ok", text: `${artifacts.guardrails.length} guardrails` },
+        {
+          kind: "ok",
+          text: `${stored.summary.passed}/${stored.summary.total} bài đạt · pass rate ${stored.summary.passRate}%`,
+        },
+      ]);
+      onEvaluatedChange(true);
+      return;
+    }
+
     void run();
-  }, [run]);
+  }, [
+    onEvaluatedChange,
+    run,
+    storedArtifacts.data,
+    storedArtifacts.error,
+    storedArtifacts.isPending,
+    storedRun.data,
+    storedRun.error,
+    storedRun.isPending,
+  ]);
 
   useEffect(() => () => void (timer.current && clearInterval(timer.current)), []);
 

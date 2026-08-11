@@ -45,7 +45,7 @@ export default function HomePage() {
       {w.step === 3 && w.slug && (
         <Step3Build
           slug={w.slug}
-          onEvaluated={() => w.setEvaluated(true)}
+          onEvaluatedChange={w.setEvaluated}
           onBack={() => w.goTo(2)}
           onContinue={() => w.goTo(4)}
         />

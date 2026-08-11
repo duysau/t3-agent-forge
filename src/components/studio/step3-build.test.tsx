@@ -18,9 +18,30 @@ interface EvalInput {
 }
 type EvalOutput = EvalResult["summary"] & { results: EvalResult["results"] };
 
-const { buildMutation, evaluateMutation } = vi.hoisted(() => ({
+interface StoredRun {
+  summary: EvalResult["summary"];
+  results: EvalResult["results"];
+}
+interface QueryState<T> {
+  data: T | undefined;
+  isPending: boolean;
+  error: { message: string } | null;
+}
+
+const { buildMutation, evaluateMutation, evalRunQuery, artifactsQuery } = vi.hoisted(() => ({
   buildMutation: { mutateAsync: vi.fn<(input: BuildInput) => Promise<BuildOutput>>() },
   evaluateMutation: { mutateAsync: vi.fn<(input: EvalInput) => Promise<EvalOutput>>() },
+  // Hai query mà Bước 3 đọc TRƯỚC khi quyết định có dựng hay không.
+  evalRunQuery: {
+    data: null,
+    isPending: false,
+    error: null,
+  } as QueryState<StoredRun | null>,
+  artifactsQuery: {
+    data: null,
+    isPending: false,
+    error: null,
+  } as QueryState<BuildOutput | null>,
 }));
 
 vi.mock("~/trpc/react", () => ({
@@ -28,6 +49,8 @@ vi.mock("~/trpc/react", () => ({
     agent: {
       build: { useMutation: () => buildMutation },
       evaluate: { useMutation: () => evaluateMutation },
+      evalRun: { useQuery: (_input: { slug: string }) => evalRunQuery },
+      artifacts: { useQuery: (_input: { slug: string }) => artifactsQuery },
     },
   },
 }));
@@ -62,10 +85,25 @@ const EVALUATED: EvalOutput = {
   },
   results: [],
 };
+const STORED_RUN: StoredRun = {
+  summary: {
+    passRate: EVALUATED.passRate,
+    avgScore: EVALUATED.avgScore,
+    passed: EVALUATED.passed,
+    total: EVALUATED.total,
+    breakdown: EVALUATED.breakdown,
+  },
+  results: [],
+};
 
-function renderStep3Build() {
+function renderStep3Build(onEvaluatedChange: (value: boolean) => void = vi.fn()) {
   return render(
-    <Step3Build slug="demo-agent" onEvaluated={vi.fn()} onBack={vi.fn()} onContinue={vi.fn()} />,
+    <Step3Build
+      slug="demo-agent"
+      onEvaluatedChange={onEvaluatedChange}
+      onBack={vi.fn()}
+      onContinue={vi.fn()}
+    />,
   );
 }
 
@@ -73,6 +111,12 @@ describe("Step3Build", () => {
   beforeEach(() => {
     buildMutation.mutateAsync.mockReset();
     evaluateMutation.mutateAsync.mockReset();
+    evalRunQuery.data = null;
+    evalRunQuery.isPending = false;
+    evalRunQuery.error = null;
+    artifactsQuery.data = null;
+    artifactsQuery.isPending = false;
+    artifactsQuery.error = null;
   });
 
   it("chạy build đúng một lần dù Strict Mode gọi effect hai lần", async () => {
@@ -83,7 +127,7 @@ describe("Step3Build", () => {
       <StrictMode>
         <Step3Build
           slug="demo-agent"
-          onEvaluated={vi.fn()}
+          onEvaluatedChange={vi.fn()}
           onBack={vi.fn()}
           onContinue={vi.fn()}
         />
@@ -158,5 +202,104 @@ describe("Step3Build", () => {
     });
 
     await waitFor(() => expect(evaluateMutation.mutateAsync).toHaveBeenCalledTimes(1));
+  });
+
+  it("đã có bảng điểm đã lưu thì hiện lại từ dữ liệu đó, KHÔNG dựng lại", async () => {
+    evalRunQuery.data = STORED_RUN;
+    artifactsQuery.data = BUILT;
+    const onEvaluatedChange = vi.fn();
+
+    renderStep3Build(onEvaluatedChange);
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(buildMutation.mutateAsync).not.toHaveBeenCalled();
+    expect(evaluateMutation.mutateAsync).not.toHaveBeenCalled();
+    expect(screen.getByText(/hiện lại kết quả đã lưu/i)).toBeInTheDocument();
+    // Artifacts và bảng điểm phải thật sự lên màn hình, không chỉ là "không chạy gì".
+    expect(screen.getByTestId("system-prompt")).toHaveTextContent("prompt");
+    expect(screen.getByText("Kết quả kiểm định")).toBeInTheDocument();
+    expect(onEvaluatedChange).toHaveBeenCalledWith(true);
+  });
+
+  /**
+   * Đây là chính cái bug: page.tsx render Bước 3 có điều kiện, nên "Quay lại" từ
+   * Bước 4 rồi đi tiếp lại là unmount → mount, và ref `running` (per-instance)
+   * không giúp gì được. Mỗi vòng như vậy từng là thêm một lượt build + eval, tức
+   * 40+ lệnh gọi LLM, không ai bấm gì cả.
+   */
+  it("mount lại sau khi đã build+eval thì không tiêu thêm một lượt nào", async () => {
+    buildMutation.mutateAsync.mockResolvedValue(BUILT);
+    evaluateMutation.mutateAsync.mockResolvedValue(EVALUATED);
+
+    const first = renderStep3Build();
+    await waitFor(() => expect(evaluateMutation.mutateAsync).toHaveBeenCalledTimes(1));
+    expect(buildMutation.mutateAsync).toHaveBeenCalledTimes(1);
+    first.unmount();
+
+    // Server giờ đã có run + artifacts của lượt vừa rồi — đúng những gì
+    // agent.evalRun/agent.artifacts sẽ trả về khi Bước 3 mount lại.
+    evalRunQuery.data = STORED_RUN;
+    artifactsQuery.data = BUILT;
+
+    renderStep3Build();
+
+    // Cho mọi promise/effect của lượt mount thứ hai chạy xong TRƯỚC khi đếm —
+    // nếu không, một lượt build mới vẫn đang treo sẽ lọt qua assertion.
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(buildMutation.mutateAsync).toHaveBeenCalledTimes(1);
+    expect(evaluateMutation.mutateAsync).toHaveBeenCalledTimes(1);
+    expect(screen.getByText(/hiện lại kết quả đã lưu/i)).toBeInTheDocument();
+  });
+
+  it("hai query còn pending thì chưa quyết định gì, không dựng", async () => {
+    evalRunQuery.isPending = true;
+    evalRunQuery.data = undefined;
+    artifactsQuery.isPending = true;
+    artifactsQuery.data = undefined;
+
+    renderStep3Build();
+
+    await waitFor(() => expect(screen.getByText(/agentforge · build/)).toBeInTheDocument());
+    expect(buildMutation.mutateAsync).not.toHaveBeenCalled();
+  });
+
+  it("dựng lại thì tắt cờ evaluated trước, để stepper không mở Bước 4 giữa lượt dựng", async () => {
+    let resolveBuild!: (value: BuildOutput) => void;
+    buildMutation.mutateAsync.mockImplementation(
+      () =>
+        new Promise<BuildOutput>((resolve) => {
+          resolveBuild = resolve;
+        }),
+    );
+    evaluateMutation.mutateAsync.mockResolvedValue(EVALUATED);
+    const onEvaluatedChange = vi.fn();
+
+    renderStep3Build(onEvaluatedChange);
+
+    await waitFor(() => expect(buildMutation.mutateAsync).toHaveBeenCalledTimes(1));
+    expect(onEvaluatedChange).toHaveBeenCalledWith(false);
+    expect(onEvaluatedChange).not.toHaveBeenCalledWith(true);
+
+    await act(async () => {
+      resolveBuild(BUILT);
+    });
+
+    await waitFor(() => expect(onEvaluatedChange).toHaveBeenCalledWith(true));
+  });
+
+  it("đọc dữ liệu đã lưu lỗi thì báo lỗi, KHÔNG đoán bằng cách dựng lại", async () => {
+    evalRunQuery.error = { message: "Không đọc được bảng điểm đã lưu" };
+    evalRunQuery.data = undefined;
+
+    renderStep3Build();
+
+    expect(await screen.findByText(/Không đọc được bảng điểm đã lưu/)).toBeInTheDocument();
+    expect(buildMutation.mutateAsync).not.toHaveBeenCalled();
   });
 });

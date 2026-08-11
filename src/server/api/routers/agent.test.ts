@@ -200,6 +200,32 @@ describe("agent.evaluate", () => {
   });
 });
 
+describe("agent.artifacts", () => {
+  it("chưa dựng thì trả null", async () => {
+    const agent = await h.seedAgent();
+    expect(await h.caller().agent.artifacts({ slug: agent.slug })).toBeNull();
+  });
+
+  it("đã dựng thì trả persona, system prompt và guardrails đã lưu", async () => {
+    const agent = await h.seedAgent();
+    const api = h.caller();
+    await api.agent.setProduct({ slug: agent.slug, product: "chat" });
+    const built = await api.agent.build({ slug: agent.slug });
+
+    const stored = await api.agent.artifacts({ slug: agent.slug });
+
+    expect(stored?.persona).toEqual(built.persona);
+    expect(stored?.systemPrompt).toBe(built.systemPrompt);
+    expect(stored?.guardrails).toEqual(built.guardrails);
+  });
+
+  it("slug không tồn tại thì NOT_FOUND", async () => {
+    await expect(h.caller().agent.artifacts({ slug: "khongcogi12" })).rejects.toThrow(
+      /NOT_FOUND|không tìm/i,
+    );
+  });
+});
+
 /**
  * Kịch bản mẫu (mode "fixture" ghi ở Bước 1) phải chạy được offline suốt Bước 3.
  *

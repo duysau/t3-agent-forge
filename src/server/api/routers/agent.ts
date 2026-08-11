@@ -7,6 +7,7 @@ import { saveBuildArtifacts } from "~/server/services/agent-store";
 import { withSessionRecovery } from "~/server/services/session-bridge";
 import { getLatestEvalRun, saveEvalRun } from "~/server/db/queries/eval";
 import { DEFAULT_VOICE_ID } from "~/lib/voices";
+import type { Persona } from "~/server/agentforge/schemas";
 import type { Db } from "~/server/db/types";
 
 const voiceIdSchema = z.enum(["std_kimngan", "std_minhquang"]);
@@ -114,5 +115,24 @@ export const agentRouter = createTRPCRouter({
     const agent = await requireAgent(ctx, input.slug);
     if (agent.status !== "evaluated") return null;
     return (await getLatestEvalRun(ctx.db, agent.id)) ?? null;
+  }),
+
+  /**
+   * Artifacts đã lưu của agent, để Bước 3 hiện lại được KHÔNG cần dựng lại.
+   * Một lượt dựng + chấm là 40+ lệnh gọi LLM, nên quay lại bước 3 phải đọc
+   * những gì đã lưu chứ không tiêu tiền lần nữa.
+   *
+   * `null` khi chưa có gì để hiện. Không đọc từ `demo.bySlug`: payload đó phục
+   * vụ trang công khai `/s/[slug]`, và system prompt không thuộc về nó.
+   */
+  artifacts: publicProcedure.input(slugInput).query(async ({ ctx, input }) => {
+    const agent = await requireAgent(ctx, input.slug);
+    const persona = agent.persona as Persona | null;
+    if (agent.status === "draft" || !persona || agent.systemPrompt === null) return null;
+    return {
+      persona,
+      systemPrompt: agent.systemPrompt,
+      guardrails: (agent.guardrails as string[] | null) ?? [],
+    };
   }),
 });
