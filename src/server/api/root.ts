@@ -1,8 +1,10 @@
 import { createCallerFactory, createTRPCRouter } from "~/server/api/trpc";
+import { agentRouter } from "~/server/api/routers/agent";
 import { sourceRouter } from "~/server/api/routers/source";
 
 export const appRouter = createTRPCRouter({
   source: sourceRouter,
+  agent: agentRouter,
 });
 
 // export type definition of API
