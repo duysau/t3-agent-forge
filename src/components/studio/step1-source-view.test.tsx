@@ -167,4 +167,55 @@ describe("Step1SourceView", () => {
     await userEvent.click(screen.getByRole("button", { name: "Crawl website" }));
     expect(onCrawl).toHaveBeenCalledTimes(1);
   });
+
+  it("khối kb-preview hiện đủ số fact truyền vào, không thiếu không thừa", () => {
+    render(
+      <Step1SourceView
+        {...props({
+          result: {
+            pages: [],
+            kbFacts: ["Fact A", "Fact B", "Fact C"],
+            totalChunks: 6,
+            degraded: false,
+            brandName: "X",
+          },
+        })}
+      />,
+    );
+    const facts = ["Fact A", "Fact B", "Fact C"];
+    for (const f of facts) {
+      expect(screen.getByText(f)).toBeInTheDocument();
+    }
+    expect(screen.getAllByText(/^Fact [A-C]$/)).toHaveLength(facts.length);
+  });
+
+  it("danh sách trang crawl hiện đúng icon theo status — ok dùng Check, khác dùng Minus", () => {
+    const { container } = render(
+      <Step1SourceView
+        {...props({
+          result: {
+            pages: [
+              { url: "https://senspa.vn", title: "Trang chủ", status: "ok" },
+              { url: "https://senspa.vn/loi", title: "Trang lỗi", status: "error" },
+            ],
+            kbFacts: [],
+            totalChunks: 6,
+            degraded: false,
+            brandName: "X",
+          },
+        })}
+      />,
+    );
+    const rows = screen.getAllByText(/Trang (chủ|lỗi)/).map((el) => el.closest("li")!);
+    expect(rows).toHaveLength(2);
+    const [okRow, errorRow] = rows;
+    // lucide-react renders each icon as an <svg class="lucide lucide-<name>">.
+    expect(okRow!.querySelector("svg.lucide-check")).toBeTruthy();
+    expect(okRow!.querySelector("svg.lucide-minus")).toBeFalsy();
+    expect(errorRow!.querySelector("svg.lucide-minus")).toBeTruthy();
+    expect(errorRow!.querySelector("svg.lucide-check")).toBeFalsy();
+    // sanity: the two rows really differ in child structure, not just by coincidence.
+    expect(container.querySelectorAll("svg.lucide-check").length).toBeGreaterThan(0);
+    expect(container.querySelectorAll("svg.lucide-minus").length).toBeGreaterThan(0);
+  });
 });
