@@ -1,6 +1,143 @@
 @import "tailwindcss";
+@import "tw-animate-css";
 
-@theme {
-  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif,
-    "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  --radius: 0.5rem;
+
+  /* Thang brand FCI — nguồn sự thật, mọi thứ khác trỏ về đây */
+  --fci-50: #eef1fd;
+  --fci-100: #d5dcfa;
+  --fci-200: #aab9f5;
+  --fci-300: #7e95f1;
+  --fci-400: #5371ec;
+  --fci-500: #203ADC;
+  --fci-600: #1a2fb0;
+  --fci-700: #142484;
+  --fci-800: #0e1858;
+  --fci-900: #080d2c;
+
+  /* Thang gray của FCI — ghi đè gray mặc định của Tailwind, vì giá trị
+     prototype khác Tailwind vài đơn vị và ràng buộc là copy nguyên giá trị */
+  --gray-25: #fcfcfd;
+  --gray-50: #f9fafb;
+  --gray-100: #f2f4f7;
+  --gray-200: #eaecf0;
+  --gray-300: #d0d5dd;
+  --gray-400: #98a2b3;
+  --gray-500: #667085;
+  --gray-600: #475467;
+  --gray-700: #344054;
+  --gray-800: #1d2939;
+  --gray-900: #101828;
+
+  /* Semantic của shadcn, gán theo FCI */
+  --background: #f9fafb;
+  --foreground: #101828;
+  --card: #ffffff;
+  --card-foreground: #101828;
+  --popover: #ffffff;
+  --popover-foreground: #101828;
+  --primary: #203ADC;
+  --primary-foreground: #ffffff;
+  --secondary: #f2f4f7;
+  --secondary-foreground: #344054;
+  --muted: #f2f4f7;
+  --muted-foreground: #667085;
+  --accent: #eef1fd;
+  --accent-foreground: #142484;
+  --destructive: #f04438;
+  --destructive-foreground: #ffffff;
+  --border: #eaecf0;
+  --input: #d0d5dd;
+  --ring: #5371ec;
+
+  /* shadcn không có success/warning — bảng điểm eval và badge tụt hạng cần */
+  --success: #17b26a;
+  --success-foreground: #ffffff;
+  --success-muted: #ecfdf3;
+  --success-strong: #067647;
+  --warning: #f79009;
+  --warning-foreground: #ffffff;
+  --warning-muted: #fffaeb;
+  --warning-strong: #b54708;
+  --error-muted: #fef3f2;
+  --error-strong: #b42318;
+}
+
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --color-fci-50: var(--fci-50);
+  --color-fci-100: var(--fci-100);
+  --color-fci-200: var(--fci-200);
+  --color-fci-300: var(--fci-300);
+  --color-fci-400: var(--fci-400);
+  --color-fci-500: var(--fci-500);
+  --color-fci-600: var(--fci-600);
+  --color-fci-700: var(--fci-700);
+  --color-fci-800: var(--fci-800);
+  --color-fci-900: var(--fci-900);
+
+  --color-gray-25: var(--gray-25);
+  --color-gray-50: var(--gray-50);
+  --color-gray-100: var(--gray-100);
+  --color-gray-200: var(--gray-200);
+  --color-gray-300: var(--gray-300);
+  --color-gray-400: var(--gray-400);
+  --color-gray-500: var(--gray-500);
+  --color-gray-600: var(--gray-600);
+  --color-gray-700: var(--gray-700);
+  --color-gray-800: var(--gray-800);
+  --color-gray-900: var(--gray-900);
+
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-success-muted: var(--success-muted);
+  --color-success-strong: var(--success-strong);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-warning-muted: var(--warning-muted);
+  --color-warning-strong: var(--warning-strong);
+  --color-error-muted: var(--error-muted);
+  --color-error-strong: var(--error-strong);
+
+  --shadow-glow: 0 0 24px rgb(32 58 220 / 0.28);
+
+  --font-sans: var(--font-sans), "Be Vietnam Pro", system-ui, sans-serif;
+  --font-mono: var(--font-mono), ui-monospace, monospace;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+    -webkit-font-smoothing: antialiased;
+  }
 }
