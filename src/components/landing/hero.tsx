@@ -6,7 +6,7 @@ export function Hero() {
   return (
     <section className="overflow-hidden border-b border-border bg-[radial-gradient(1200px_500px_at_80%_-10%,rgb(83_113_236/0.18),transparent_60%),radial-gradient(900px_500px_at_10%_110%,rgb(32_58_220/0.1),transparent_55%),linear-gradient(180deg,#fff,var(--gray-50))] pt-16 pb-10 max-[640px]:pt-10 max-[640px]:pb-[30px]">
       <div className="mx-auto max-w-[1160px] px-6 max-[640px]:px-4">
-        <div className="grid items-center gap-9 min-[900px]:grid-cols-[1.05fr_0.95fr]">
+        <div className="grid items-center gap-9 min-[900px]:grid-cols-[1.05fr_0.95fr] max-[900px]:gap-1">
           <div className="min-w-0">
             <div className="inline-flex items-center gap-2 rounded-full border border-fci-100 bg-white px-3.5 py-1.5 text-[13px] font-semibold text-fci-700 shadow-xs">
               <span className="relative size-2 rounded-full bg-success">
