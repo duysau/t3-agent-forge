@@ -150,10 +150,21 @@ describe("Step1SourceView", () => {
     expect(screen.getByTestId("pdf-input")).toBeDisabled();
   });
 
+  it("crawl xong rồi thì cho phép upload PDF", () => {
+    render(
+      <Step1SourceView
+        {...props({
+          result: { pages: [], kbFacts: [], totalChunks: 6, degraded: false, brandName: "X" },
+        })}
+      />,
+    );
+    expect(screen.getByTestId("pdf-input")).toBeEnabled();
+  });
+
   it("bấm Bắt đầu crawl thì gọi onCrawl", async () => {
     const onCrawl = vi.fn();
     render(<Step1SourceView {...props({ url: "https://senspa.vn", onCrawl })} />);
-    await userEvent.click(screen.getByRole("button", { name: /Crawl website/ }));
+    await userEvent.click(screen.getByRole("button", { name: "Crawl website" }));
     expect(onCrawl).toHaveBeenCalledTimes(1);
   });
 });

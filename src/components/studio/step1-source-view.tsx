@@ -82,7 +82,6 @@ export function Step1SourceView(p: Step1ViewProps) {
               type="button"
               onClick={() => fileRef.current?.click()}
               disabled={p.result === null || p.uploading}
-              aria-label={p.uploading ? "Đang nạp PDF…" : "Chọn PDF bảng giá / catalogue"}
               className="mt-1.5 w-full rounded-xl border-2 border-dashed border-input px-4 py-6 text-center transition-colors hover:border-fci-400 disabled:cursor-not-allowed disabled:opacity-60"
             >
               <FileUp className="mx-auto size-6 text-gray-400" />
