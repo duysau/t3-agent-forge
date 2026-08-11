@@ -20,40 +20,42 @@ export interface AgentAggregate {
 }
 
 export async function persistCrawl(db: Db, input: PersistCrawlInput): Promise<AgentRow> {
-  const created = await createAgent(db, {
-    sourceUrl: input.sourceUrl,
-    pythonSessionId: input.crawl.sessionId,
-    mode: input.mode,
-    fixtureKey: input.fixtureKey,
-  });
+  return db.transaction(async (tx) => {
+    const created = await createAgent(tx, {
+      sourceUrl: input.sourceUrl,
+      pythonSessionId: input.crawl.sessionId,
+      mode: input.mode,
+      fixtureKey: input.fixtureKey,
+    });
 
-  if (input.crawl.pages.length > 0) {
-    await db.insert(crawledPages).values(
-      input.crawl.pages.map((p, i) => ({
-        agentId: created.id,
-        url: p.url,
-        title: p.title,
-        status: p.status,
-        ord: i,
-      })),
-    );
-  }
+    if (input.crawl.pages.length > 0) {
+      await tx.insert(crawledPages).values(
+        input.crawl.pages.map((p, i) => ({
+          agentId: created.id,
+          url: p.url,
+          title: p.title,
+          status: p.status,
+          ord: i,
+        })),
+      );
+    }
 
-  if (input.crawl.chunks.length > 0) {
-    await db.insert(kbChunks).values(
-      input.crawl.chunks.map((content, i) => ({
-        agentId: created.id,
-        content,
-        source: "web" as const,
-        sourceUrl: input.sourceUrl,
-        ord: i,
-      })),
-    );
-  }
+    if (input.crawl.chunks.length > 0) {
+      await tx.insert(kbChunks).values(
+        input.crawl.chunks.map((content, i) => ({
+          agentId: created.id,
+          content,
+          source: "web" as const,
+          sourceUrl: input.sourceUrl,
+          ord: i,
+        })),
+      );
+    }
 
-  return updateAgent(db, created.id, {
-    kbFacts: input.crawl.kbFacts,
-    degraded: input.degraded ?? false,
+    return updateAgent(tx, created.id, {
+      kbFacts: input.crawl.kbFacts,
+      degraded: input.degraded ?? false,
+    });
   });
 }
 
@@ -66,18 +68,20 @@ export async function replaceKbChunks(
   agentId: string,
   chunks: Array<{ content: string; source: "web" | "pdf"; sourceUrl: string | null }>,
 ): Promise<number> {
-  await db.delete(kbChunks).where(eq(kbChunks.agentId, agentId));
-  if (chunks.length === 0) return 0;
-  await db.insert(kbChunks).values(
-    chunks.map((c, i) => ({
-      agentId,
-      content: c.content,
-      source: c.source,
-      sourceUrl: c.sourceUrl,
-      ord: i,
-    })),
-  );
-  return chunks.length;
+  return db.transaction(async (tx) => {
+    await tx.delete(kbChunks).where(eq(kbChunks.agentId, agentId));
+    if (chunks.length === 0) return 0;
+    await tx.insert(kbChunks).values(
+      chunks.map((c, i) => ({
+        agentId,
+        content: c.content,
+        source: c.source,
+        sourceUrl: c.sourceUrl,
+        ord: i,
+      })),
+    );
+    return chunks.length;
+  });
 }
 
 export async function getAgentAggregate(

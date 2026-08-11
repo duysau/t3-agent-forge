@@ -1,7 +1,51 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { makeTestDb } from "~/test/db";
+import { agents } from "~/server/db/schema";
 import type { Db } from "~/server/db/types";
 import { getAgentAggregate, persistCrawl, replaceKbChunks } from "./agent-store";
+
+/**
+ * Bọc một Db thật bằng Proxy: đếm số lần `insert` được gọi (kể cả insert gọi
+ * từ trong `db.transaction`) và ném lỗi ở lần gọi thứ `failOnCall`, để mô
+ * phỏng một insert giữa transaction bị lỗi (ví dụ mất kết nối tạm thời).
+ */
+function wrapDbFailingOnNthInsert(target: Db, failOnCall: number): Db {
+  let insertCalls = 0;
+
+  function wrap<T extends object>(obj: T): T {
+    return new Proxy(obj, {
+      get(o, prop, receiver) {
+        if (prop === "insert") {
+          return (...args: unknown[]) => {
+            insertCalls += 1;
+            if (insertCalls === failOnCall) {
+              throw new Error(`boom: insert call #${String(insertCalls)} thất bại`);
+            }
+            const original: unknown = Reflect.get(o, prop, receiver);
+            return (original as (...a: unknown[]) => unknown).apply(o, args);
+          };
+        }
+        if (prop === "transaction") {
+          return (callback: (tx: unknown) => Promise<unknown>, config?: unknown) => {
+            const original: unknown = Reflect.get(o, prop, receiver);
+            return (
+              original as (
+                cb: (tx: unknown) => Promise<unknown>,
+                cfg?: unknown,
+              ) => Promise<unknown>
+            ).call(o, (tx: unknown) => callback(wrap(tx as object)), config);
+          };
+        }
+        const value: unknown = Reflect.get(o, prop, receiver);
+        return typeof value === "function"
+          ? (value as (...a: unknown[]) => unknown).bind(o)
+          : value;
+      },
+    });
+  }
+
+  return wrap(target);
+}
 
 let db: Db;
 let close: () => Promise<void>;
@@ -82,6 +126,21 @@ describe("persistCrawl", () => {
     });
     const agg = await getAgentAggregate(db, agent.slug);
     expect(agg?.chunks).toHaveLength(0);
+  });
+
+  it("rollback toàn bộ khi insert chunks thất bại, không để lại agent mồ côi", async () => {
+    const failingDb = wrapDbFailingOnNthInsert(db, 2);
+
+    await expect(
+      persistCrawl(failingDb, {
+        sourceUrl: "https://senspa.vn",
+        mode: "live",
+        crawl: CRAWL,
+      }),
+    ).rejects.toThrow(/boom/);
+
+    const rows = await db.select().from(agents);
+    expect(rows).toHaveLength(0);
   });
 });
 
