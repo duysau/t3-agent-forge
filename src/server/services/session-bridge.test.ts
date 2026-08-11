@@ -1,5 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { TRPCError } from "@trpc/server";
 import { AgentForgeError } from "~/server/agentforge/errors";
+import { GENERIC_ERROR_MESSAGE } from "~/server/api/trpc";
 import { getAgentById } from "~/server/db/queries/agents";
 import { CRAWL_FIXTURE, makeHarness, type Harness } from "~/test/harness";
 import { withSessionRecovery } from "./session-bridge";
@@ -124,5 +126,49 @@ describe("withSessionRecovery", () => {
       withSessionRecovery({ db: h.db, source: h.source() }, agent.id, fn),
     ).rejects.toThrow(/chưa có session/i);
     expect(fn).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * Mọi test trên gọi `withSessionRecovery` TRỰC TIẾP, nên chúng không thấy được
+ * `mapErrors` — và đó chính là lý do lỗi này vô hình: một `Error` trần thành
+ * `INTERNAL_SERVER_ERROR`, và `mapErrors` thay message bằng message chung để
+ * không lộ chi tiết hạ tầng. Hai nửa đều đúng riêng lẻ; hợp lại thì lời hướng
+ * dẫn tiếng Việt duy nhất giúp người dùng tự thoát bị xoá sổ.
+ *
+ * Nên các test dưới đây đi QUA caller, đúng đường mà người dùng đi.
+ */
+describe("lời hướng dẫn của withSessionRecovery đi được qua biên lỗi tRPC", () => {
+  const NO_SESSION = /chưa có session Python/;
+
+  async function catchError(promise: Promise<unknown>): Promise<unknown> {
+    return promise.then(
+      () => null,
+      (e: unknown) => e,
+    );
+  }
+
+  it("build agent thiếu session Python thì trả BAD_REQUEST kèm hướng dẫn crawl lại", async () => {
+    const agent = await h.seedAgent({ crawl: { ...CRAWL_FIXTURE, sessionId: "" } });
+    const api = h.caller();
+    await api.agent.setProduct({ slug: agent.slug, product: "chat" });
+
+    const err = await catchError(api.agent.build({ slug: agent.slug }));
+
+    expect(err).toBeInstanceOf(TRPCError);
+    expect((err as TRPCError).code).toBe("BAD_REQUEST");
+    expect((err as TRPCError).message).toMatch(NO_SESSION);
+    expect((err as TRPCError).message).not.toBe(GENERIC_ERROR_MESSAGE);
+  });
+
+  it("chat với agent thiếu session Python cũng giữ nguyên hướng dẫn", async () => {
+    const agent = await h.seedAgent({ crawl: { ...CRAWL_FIXTURE, sessionId: "" } });
+
+    const err = await catchError(
+      h.caller().chat.send({ slug: agent.slug, message: "hi", history: [] }),
+    );
+
+    expect((err as TRPCError).code).toBe("BAD_REQUEST");
+    expect((err as TRPCError).message).toMatch(NO_SESSION);
   });
 });

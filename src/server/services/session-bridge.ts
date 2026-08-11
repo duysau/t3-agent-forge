@@ -1,5 +1,5 @@
 import { updateAgent } from "~/server/db/queries/agents";
-import { isSessionMissing } from "~/server/agentforge/errors";
+import { AgentForgeError, isSessionMissing } from "~/server/agentforge/errors";
 import { logBoundary } from "~/server/agentforge/log";
 import type { AgentForgeSource } from "~/server/agentforge/source";
 import type { Db } from "~/server/db/types";
@@ -29,12 +29,23 @@ export async function withSessionRecovery<T>(
   agentId: string,
   fn: (sessionId: string) => Promise<T>,
 ): Promise<T> {
+  // Hai lỗi dưới đây là `AgentForgeError` kind `bad_request`, KHÔNG phải `Error`
+  // trần. `mapErrors` (trpc.ts) chỉ giữ nguyên message của AgentForgeError và của
+  // TRPCError có code cụ thể; một throw không nhận dạng được thành
+  // INTERNAL_SERVER_ERROR và message bị thay bằng message chung — đúng đắn cho lỗi
+  // lạ, nhưng ở đây nó xoá sổ lời hướng dẫn duy nhất giúp người dùng tự thoát.
   const agg = await getAgentAggregateById(deps.db, agentId);
-  if (!agg) throw new Error(`Không tìm thấy agent ${agentId}`);
+  if (!agg) {
+    throw new AgentForgeError("bad_request", `Không tìm thấy agent ${agentId}`, null);
+  }
 
   const sessionId = agg.agent.pythonSessionId;
   if (!sessionId) {
-    throw new Error("Agent chưa có session Python — hãy crawl lại trước khi tiếp tục");
+    throw new AgentForgeError(
+      "bad_request",
+      "Agent chưa có session Python — hãy crawl lại trước khi tiếp tục",
+      null,
+    );
   }
 
   try {
