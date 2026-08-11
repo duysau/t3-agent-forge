@@ -57,6 +57,34 @@ describe("buildResponse", () => {
     expect(r.systemPrompt).toContain("Sen Spa");
     expect(r.guardrails).toHaveLength(2);
   });
+
+  it("avatar_letter không có thì lấy chữ cái đầu tiên của name, in hoa", () => {
+    const payload = {
+      ...RAW_BUILD,
+      persona: {
+        name: "sen",
+        role: "tư vấn viên",
+        description: "mô tả",
+        // avatar_letter bị bỏ đi
+      },
+    };
+    const r = buildResponse.parse(payload);
+    expect(r.persona.avatarLetter).toBe("S");
+  });
+
+  it("avatar_letter là null thì vẫn lấy chữ cái đầu tiên của name, in hoa", () => {
+    const payload = {
+      ...RAW_BUILD,
+      persona: {
+        name: "sen",
+        role: "tư vấn viên",
+        description: "mô tả",
+        avatar_letter: null,
+      },
+    };
+    const r = buildResponse.parse(payload);
+    expect(r.persona.avatarLetter).toBe("S");
+  });
 });
 
 describe("evalResponse", () => {
