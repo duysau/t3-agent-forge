@@ -65,6 +65,17 @@ describe("ChatDemoView", () => {
     expect(screen.getByPlaceholderText(/Nhập câu hỏi/)).toBeDisabled();
   });
 
+  it("đang gửi thì live region có nội dung để đọc, không chỉ nhãn", () => {
+    render(<ChatDemoView {...props({ draft: "x", sending: true })} />);
+    const status = screen.getByRole("status");
+    // aria-label names the region but is not what AT announces on update —
+    // that comes from the region's own text content. The three typing dots
+    // carry no text, so without a text node the announcement is empty even
+    // though the element still has an accessible name.
+    expect(status.textContent).not.toBe("");
+    expect(status).toHaveTextContent("Đang trả lời");
+  });
+
   it("bấm câu hỏi gợi ý thì gọi onPickSuggested với đúng câu đó", async () => {
     const onPickSuggested = vi.fn();
     render(

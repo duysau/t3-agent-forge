@@ -56,10 +56,13 @@ export function ChatDemoView(p: ChatViewProps) {
           );
         })}
         {p.sending && (
-          // Ba chấm nhảy không tự đọc được — `role="status"` + `aria-label` giữ lại
-          // đúng thông tin thật ("đang chờ trả lời") cho screen reader, thứ mà dòng
-          // chữ "Đang trả lời…" cũ vẫn đang nói.
+          // Ba chấm nhảy không tự đọc được — `role="status"` là một live region,
+          // và AT đọc phần TEXT CONTENT của nó khi nó xuất hiện/đổi, không phải
+          // `aria-label`. Không có text node nào bên trong thì không có gì được
+          // đọc. Giữ lại đúng dòng chữ "Đang trả lời…" cũ, nhưng ẩn khỏi mắt
+          // (sr-only) để người dùng thấy vẫn chỉ là ba chấm nhảy.
           <p role="status" aria-label="Đang trả lời" className="ml-[42px] flex items-center gap-1.5">
+            <span className="sr-only">Đang trả lời…</span>
             <span className="size-[7px] animate-typing rounded-full bg-gray-400" />
             <span className="size-[7px] animate-typing rounded-full bg-gray-400 [animation-delay:.15s]" />
             <span className="size-[7px] animate-typing rounded-full bg-gray-400 [animation-delay:.3s]" />
