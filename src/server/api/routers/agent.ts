@@ -2,6 +2,7 @@ import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { createTRPCRouter, publicProcedure } from "~/server/api/trpc";
 import { getAgentBySlug, updateAgent } from "~/server/db/queries/agents";
+import { sourceForAgent } from "~/server/agentforge/resolve";
 import { saveBuildArtifacts } from "~/server/services/agent-store";
 import { withSessionRecovery } from "~/server/services/session-bridge";
 import { getLatestEvalRun, saveEvalRun } from "~/server/db/queries/eval";
@@ -51,8 +52,13 @@ export const agentRouter = createTRPCRouter({
       });
     }
 
-    const built = await withSessionRecovery({ db: ctx.db, source: ctx.source }, agent.id, (sid) =>
-      ctx.source.build({ sessionId: sid, product }),
+    // `mode` cũng lấy từ DB, cùng lý lẽ với `product` ở trên: người dùng đã chọn
+    // "kịch bản mẫu (chạy offline)" ở Bước 1 và lựa chọn đó nằm trên row. Dùng
+    // `ctx.source` (luôn live) sẽ gọi backend mà kịch bản mẫu tồn tại để tránh.
+    const source = sourceForAgent(agent, ctx.source);
+
+    const built = await withSessionRecovery({ db: ctx.db, source }, agent.id, (sid) =>
+      source.build({ sessionId: sid, product }),
     );
 
     const saved = await saveBuildArtifacts(ctx.db, agent.id, built);
@@ -84,10 +90,10 @@ export const agentRouter = createTRPCRouter({
       });
     }
 
-    const evaluated = await withSessionRecovery(
-      { db: ctx.db, source: ctx.source },
-      agent.id,
-      (sid) => ctx.source.evaluate({ sessionId: sid, product }),
+    const source = sourceForAgent(agent, ctx.source);
+
+    const evaluated = await withSessionRecovery({ db: ctx.db, source }, agent.id, (sid) =>
+      source.evaluate({ sessionId: sid, product }),
     );
 
     await saveEvalRun(ctx.db, agent.id, evaluated);

@@ -200,6 +200,57 @@ describe("agent.evaluate", () => {
   });
 });
 
+/**
+ * Kịch bản mẫu (mode "fixture" ghi ở Bước 1) phải chạy được offline suốt Bước 3.
+ *
+ * Harness luôn tiêm MỘT fixture source vào ctx, nên một test chỉ "pass" không
+ * chứng minh gì cả — phải phân biệt được ĐÃ DÙNG NGUỒN NÀO. Cách phân biệt ở đây:
+ * agent lưu `fixtureKey: "bepnha"`, còn `ctx.source` là senspa với build/evaluate
+ * bị ghi đè thành spy. Nếu code đọc `ctx.source`, spy được gọi và dữ liệu trả về
+ * là của Sen Spa; nếu code đọc row, spy im lặng và dữ liệu là của Bếp Nhà.
+ */
+describe("nguồn dữ liệu lấy từ mode/fixtureKey đã lưu trên agent row", () => {
+  const seedFixtureAgent = () =>
+    h.seedAgent({ sourceUrl: "https://bepnha.vn", mode: "fixture", fixtureKey: "bepnha" });
+
+  it("build agent mode fixture thì dùng fixture của row, không gọi nguồn live trong ctx", async () => {
+    const agent = await seedFixtureAgent();
+    const ctxBuild = vi.fn().mockResolvedValue(BUILD_RESULT);
+    const api = h.caller({ source: h.source({ build: ctxBuild }) });
+    await api.agent.setProduct({ slug: agent.slug, product: "chat" });
+
+    const out = await api.agent.build({ slug: agent.slug });
+
+    expect(ctxBuild).not.toHaveBeenCalled();
+    expect(out.persona.name).toBe("Na");
+    expect(out.brandName).toBe("Bếp Nhà");
+  });
+
+  it("evaluate agent mode fixture thì chấm bằng fixture của row, không gọi nguồn live trong ctx", async () => {
+    const agent = await seedFixtureAgent();
+    const ctxEvaluate = vi.fn();
+    const api = h.caller({ source: h.source({ evaluate: ctxEvaluate }) });
+    await api.agent.setProduct({ slug: agent.slug, product: "chat" });
+    await api.agent.build({ slug: agent.slug });
+
+    const out = await api.agent.evaluate({ slug: agent.slug });
+
+    expect(ctxEvaluate).not.toHaveBeenCalled();
+    expect(out.results[0]?.question).toBe("Nhà hàng mở cửa mấy giờ?");
+  });
+
+  it("agent mode live vẫn dùng nguồn trong ctx", async () => {
+    const agent = await h.seedAgent();
+    const ctxBuild = vi.fn().mockResolvedValue(BUILD_RESULT);
+    const api = h.caller({ source: h.source({ build: ctxBuild }) });
+    await api.agent.setProduct({ slug: agent.slug, product: "chat" });
+
+    await api.agent.build({ slug: agent.slug });
+
+    expect(ctxBuild).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe("agent.evalRun", () => {
   it("chưa chạy eval thì trả null", async () => {
     const agent = await h.seedAgent();

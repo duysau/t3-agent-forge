@@ -73,4 +73,25 @@ describe("chat.send", () => {
       h.caller().chat.send({ slug: "khongcogi12", message: "hi", history: [] }),
     ).rejects.toThrow(/NOT_FOUND|không tìm/i);
   });
+
+  // Agent dựng bằng kịch bản mẫu phải chat được bằng chính kịch bản đó, kể cả khi
+  // backend chết. Phân biệt nguồn: row nói "bepnha", ctx là senspa với `chat` là
+  // spy — spy được gọi nghĩa là code đang đọc ctx.source thay vì row.
+  it("agent mode fixture chat bằng fixture của row, không gọi nguồn live trong ctx", async () => {
+    const agent = await h.seedAgent({
+      sourceUrl: "https://bepnha.vn",
+      mode: "fixture",
+      fixtureKey: "bepnha",
+    });
+    const ctxChat = vi.fn().mockResolvedValue({ reply: "reply từ nguồn live" });
+
+    const out = await h.caller({ source: h.source({ chat: ctxChat }) }).chat.send({
+      slug: agent.slug,
+      message: "Nhà hàng mở cửa mấy giờ?",
+      history: [],
+    });
+
+    expect(ctxChat).not.toHaveBeenCalled();
+    expect(out.reply).toBe("Dạ Bếp Nhà mở 10h00 đến 22h00 hằng ngày ạ.");
+  });
 });
