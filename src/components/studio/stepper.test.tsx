@@ -38,4 +38,17 @@ describe("Stepper", () => {
     await userEvent.click(screen.getByRole("button", { name: /Demo chia sẻ/ }));
     expect(onSelect).not.toHaveBeenCalled();
   });
+
+  it("vòng số bước xong mang viền success, bước chưa tới mang viền trong suốt", () => {
+    const { container } = render(<Stepper current={2} onSelect={vi.fn()} canGoTo={() => true} />);
+    const circles = container.querySelectorAll("span[class*='rounded-full']");
+    // Step 1 is done (current is 2)
+    const doneCircle = circles[0]!;
+    expect(doneCircle.className).toContain("border-2");
+    expect(doneCircle.className).toContain("border-success");
+    // Step 3 is not yet reached
+    const unreachedCircle = circles[2]!;
+    expect(unreachedCircle.className).toContain("border-2");
+    expect(unreachedCircle.className).toContain("border-transparent");
+  });
 });
