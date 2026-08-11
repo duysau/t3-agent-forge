@@ -8,7 +8,7 @@ export function ScoreRing({ percent, label }: { percent: number; label?: string 
   return (
     <div className="relative grid size-[120px] place-items-center">
       <svg width="120" height="120" className="-rotate-90">
-        <circle cx="60" cy="60" r={RADIUS} fill="none" stroke="currentColor" strokeWidth="10" className="text-gray-200" />
+        <circle cx="60" cy="60" r={RADIUS} fill="none" stroke="currentColor" strokeWidth="10" className="text-white/20" />
         <circle
           data-testid="score-ring-arc"
           cx="60"
@@ -20,12 +20,12 @@ export function ScoreRing({ percent, label }: { percent: number; label?: string 
           strokeLinecap="round"
           strokeDasharray={CIRCUMFERENCE}
           strokeDashoffset={offset}
-          className="text-primary transition-[stroke-dashoffset] duration-1000"
+          className="text-white transition-[stroke-dashoffset] duration-1000"
         />
       </svg>
       <div className="absolute text-center">
-        <div className="text-2xl font-extrabold text-gray-900">{Math.round(clamped)}%</div>
-        {label && <div className="text-[11px] text-muted-foreground">{label}</div>}
+        <div className="text-[32px] font-extrabold leading-none text-white">{Math.round(clamped)}%</div>
+        {label && <div className="text-[11px] text-white/80">{label}</div>}
       </div>
     </div>
   );
