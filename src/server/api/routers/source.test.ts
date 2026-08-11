@@ -90,6 +90,25 @@ describe("source.crawl", () => {
     const api = caller(createFixtureSource("senspa", { delayMs: 0 }));
     await expect(api.source.crawl({ url: "khong-phai-url", mode: "live" })).rejects.toThrow();
   });
+
+  it("lỗi hệ thống không xác định (vd driver DB chết) thì che message gốc, chỉ trả message chung", async () => {
+    const broken: AgentForgeSource = {
+      ...createFixtureSource("senspa", { delayMs: 0 }),
+      kind: "live",
+      crawl: vi.fn().mockRejectedValue(new Error("connect ECONNREFUSED 127.0.0.1:5432")),
+    };
+
+    const err: unknown = await caller(broken)
+      .source.crawl({ url: "https://x.vn", mode: "live" })
+      .then(() => null, (e: unknown) => e);
+
+    expect(err).toBeInstanceOf(Error);
+    const message = (err as Error).message;
+    expect(message).toBe("Hệ thống gặp lỗi không mong muốn. Vui lòng thử lại.");
+    // Đây là bài test lộ thông tin thật sự quan trọng: message gốc của driver
+    // (host, port) tuyệt đối không được lọt tới client.
+    expect(message).not.toMatch(/ECONNREFUSED|127\.0\.0\.1|5432/);
+  });
 });
 
 describe("source.bySlug", () => {
