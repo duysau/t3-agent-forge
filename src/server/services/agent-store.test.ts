@@ -1,25 +1,28 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { getTableName, type Table } from "drizzle-orm";
 import { makeTestDb } from "~/test/db";
-import { agents } from "~/server/db/schema";
+import { agents, crawledPages, kbChunks } from "~/server/db/schema";
 import type { Db } from "~/server/db/types";
 import { getAgentAggregate, persistCrawl, replaceKbChunks } from "./agent-store";
 
 /**
- * Bọc một Db thật bằng Proxy: đếm số lần `insert` được gọi (kể cả insert gọi
- * từ trong `db.transaction`) và ném lỗi ở lần gọi thứ `failOnCall`, để mô
- * phỏng một insert giữa transaction bị lỗi (ví dụ mất kết nối tạm thời).
+ * Bọc một Db thật bằng Proxy: khi `insert` được gọi (kể cả insert gọi từ
+ * trong `db.transaction`) với đúng bảng `table`, ném lỗi để mô phỏng write
+ * đó thất bại giữa transaction (ví dụ mất kết nối tạm thời). So khớp theo
+ * tên bảng thật (`getTableName`) chứ không đếm số lần gọi, để chỉ đúng một
+ * write bị nhắm tới — không lệch theo thứ tự insert bên trong.
  */
-function wrapDbFailingOnNthInsert(target: Db, failOnCall: number): Db {
-  let insertCalls = 0;
+function wrapDbFailingOnInsertInto(target: Db, table: Table): Db {
+  const targetName = getTableName(table);
 
   function wrap<T extends object>(obj: T): T {
     return new Proxy(obj, {
       get(o, prop, receiver) {
         if (prop === "insert") {
           return (...args: unknown[]) => {
-            insertCalls += 1;
-            if (insertCalls === failOnCall) {
-              throw new Error(`boom: insert call #${String(insertCalls)} thất bại`);
+            const insertedTable = args[0];
+            if (insertedTable && getTableName(insertedTable as Table) === targetName) {
+              throw new Error(`boom: insert vào ${targetName} thất bại`);
             }
             const original: unknown = Reflect.get(o, prop, receiver);
             return (original as (...a: unknown[]) => unknown).apply(o, args);
@@ -128,8 +131,23 @@ describe("persistCrawl", () => {
     expect(agg?.chunks).toHaveLength(0);
   });
 
-  it("rollback toàn bộ khi insert chunks thất bại, không để lại agent mồ côi", async () => {
-    const failingDb = wrapDbFailingOnNthInsert(db, 2);
+  it("rollback toàn bộ khi insert crawledPages thất bại, không để lại agent mồ côi", async () => {
+    const failingDb = wrapDbFailingOnInsertInto(db, crawledPages);
+
+    await expect(
+      persistCrawl(failingDb, {
+        sourceUrl: "https://senspa.vn",
+        mode: "live",
+        crawl: CRAWL,
+      }),
+    ).rejects.toThrow(/boom/);
+
+    const rows = await db.select().from(agents);
+    expect(rows).toHaveLength(0);
+  });
+
+  it("rollback toàn bộ khi insert kbChunks thất bại, không để lại agent mồ côi", async () => {
+    const failingDb = wrapDbFailingOnInsertInto(db, kbChunks);
 
     await expect(
       persistCrawl(failingDb, {
