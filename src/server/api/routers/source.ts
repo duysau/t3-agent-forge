@@ -8,33 +8,32 @@ import { getAgentAggregate, persistCrawl } from "~/server/services/agent-store";
 import { updateAgent } from "~/server/db/queries/agents";
 import { BRAND_FALLBACK_COLOR, type BrandResult } from "~/server/agentforge/schemas";
 import type { AgentForgeSource } from "~/server/agentforge/source";
-import type { FixtureKey } from "~/lib/fixtures";
 import { env } from "~/env";
 
 const fixtureKeySchema = z.enum(["senspa", "bepnha"]);
-
-interface BrandOutcome {
-  data: BrandResult;
-  degraded: boolean;
-  fixtureKey: FixtureKey | null;
-}
 
 /**
  * Brand là thông tin phụ: crawl mất tới 180 giây, không đáng huỷ cả mutation vì
  * trích brand lỗi. Nhưng nuốt lỗi im lặng thì lệch contract của `/api/brand` sẽ
  * không ai thấy — nên mỗi lần nuốt đều để lại dấu ở log kèm `kind`. Đây là chỗ
  * duy nhất trong router được phép nuốt lỗi, và nó có tên để nói rõ điều đó.
+ *
+ * KHÔNG dùng `withFallback` ở đây (đã từng dùng, đó là bug): brand luôn có sẵn
+ * một fallback TRUNG LẬP — tên null, `BRAND_FALLBACK_COLOR` — nên không cần
+ * fixture nào cả. `withFallback` tụt hạng brand sang fixture của MỘT DOANH
+ * NGHIỆP KHÁC (ví dụ crawl thật `kfc.vn` nhưng brand lỗi thì nhận "Sen Spa",
+ * 🌸, `#203ADC`) và đồng thời báo `degraded: true` dù pages/chunks vẫn là dữ
+ * liệu thật — hai lỗi cùng lúc: lộ danh tính sai, và badge tụt hạng bịa đặt.
+ * Vì vậy hàm này không còn trả `degraded`/`fixtureKey` — cả hai trường đó chỉ
+ * còn ý nghĩa ở kết quả crawl.
  */
 async function brandOrDefault(
   source: AgentForgeSource,
   sourceUrl: string,
   sessionId: string,
-  fallbackEnabled: boolean,
-): Promise<BrandOutcome> {
+): Promise<BrandResult> {
   try {
-    return await withFallback({ source, sourceUrl, enabled: fallbackEnabled }, (s) =>
-      s.brand(sessionId),
-    );
+    return await source.brand(sessionId);
   } catch (err) {
     logBoundary("brand:degraded", {
       kind: err instanceof AgentForgeError ? err.kind : "unknown",
@@ -42,15 +41,11 @@ async function brandOrDefault(
       sourceUrl,
     });
     return {
-      data: {
-        name: null,
-        logo: null,
-        logoLetter: null,
-        color: BRAND_FALLBACK_COLOR,
-        industry: null,
-      },
-      degraded: true,
-      fixtureKey: null,
+      name: null,
+      logo: null,
+      logoLetter: null,
+      color: BRAND_FALLBACK_COLOR,
+      industry: null,
     };
   }
 }
@@ -107,22 +102,19 @@ export const sourceRouter = createTRPCRouter({
         crawl: crawled.data,
       });
 
-      // Brand đi cùng lượt crawl: UI cần nó ngay để hiện brandbar.
-      const brand = await brandOrDefault(
-        source,
-        input.url,
-        crawled.data.sessionId,
-        ctx.fallbackEnabled,
-      );
+      // Brand đi cùng lượt crawl: UI cần nó ngay để hiện brandbar. `degraded`
+      // và `fixtureKey` của agent chỉ phản ánh kết quả CRAWL — brand thất bại
+      // không được đổi cả hai, xem `brandOrDefault`.
+      const brand = await brandOrDefault(source, input.url, crawled.data.sessionId);
 
       const saved = await updateAgent(ctx.db, agent.id, {
-        brandName: brand.data.name,
-        brandColor: brand.data.color,
-        brandLogoLetter: brand.data.logoLetter,
-        brandLogoEmoji: brand.data.logo,
-        industry: brand.data.industry,
-        degraded: crawled.degraded || brand.degraded,
-        fixtureKey: agent.fixtureKey ?? brand.fixtureKey,
+        brandName: brand.name,
+        brandColor: brand.color,
+        brandLogoLetter: brand.logoLetter,
+        brandLogoEmoji: brand.logo,
+        industry: brand.industry,
+        degraded: crawled.degraded,
+        fixtureKey: agent.fixtureKey,
       });
 
       return {
@@ -132,7 +124,7 @@ export const sourceRouter = createTRPCRouter({
         kbFacts: crawled.data.kbFacts,
         totalChunks: crawled.data.totalChunks,
         degraded: saved.degraded,
-        brand: brand.data,
+        brand,
       };
     }),
 

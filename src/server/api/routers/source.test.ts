@@ -6,6 +6,7 @@ import { createCallerFactory } from "~/server/api/trpc";
 import { appRouter } from "~/server/api/root";
 import { createFixtureSource } from "~/server/agentforge/fixture-source";
 import { AgentForgeError } from "~/server/agentforge/errors";
+import { BRAND_FALLBACK_COLOR } from "~/server/agentforge/schemas";
 import type { AgentForgeSource } from "~/server/agentforge/source";
 
 const GENERIC_ERROR_MESSAGE = "Hệ thống gặp lỗi không mong muốn. Vui lòng thử lại.";
@@ -58,6 +59,36 @@ describe("source.crawl", () => {
     expect(saved.mode).toBe("fixture");
     expect(saved.fixtureKey).toBe("bepnha");
     expect(saved.brandName).toBe("Bếp Nhà");
+  });
+
+  it("brand lỗi trong khi crawl thành công thật thì KHÔNG được lộ danh tính doanh nghiệp khác (Finding 3)", async () => {
+    // Trước đây `brandOrDefault` bọc `withFallback`, nên brand lỗi trên một
+    // crawl thật (ví dụ crawl kfc.vn) sẽ tụt hạng sang brand của MỘT DOANH
+    // NGHIỆP KHÁC (fixture senspa: "Sen Spa", 🌸) và bịa `degraded: true` dù
+    // pages/chunks vẫn thật 100%. Bài test này khoá lại: brand lỗi chỉ được
+    // trả về default trung lập, không đụng tới degraded/fixtureKey của crawl.
+    const source: AgentForgeSource = {
+      ...createFixtureSource("senspa", { delayMs: 0 }),
+      kind: "live",
+      brand: vi.fn().mockRejectedValue(new AgentForgeError("upstream", "brand API chết", 502)),
+    };
+    const api = caller(source);
+
+    const out = await api.source.crawl({ url: "https://kfc.vn", mode: "live" });
+
+    expect(out.degraded).toBe(false);
+    expect(out.brand.name).toBeNull();
+    expect(out.brand.color).toBe(BRAND_FALLBACK_COLOR);
+
+    const saved = await api.source.bySlug({ slug: out.slug });
+    expect(saved.degraded).toBe(false);
+    expect(saved.fixtureKey).toBeNull();
+    expect(saved.brandName).toBeNull();
+    expect(saved.brandColor).toBe(BRAND_FALLBACK_COLOR);
+    // Pages/chunks của crawl thật (5 trang senspa fixture đứng thế cho "thật")
+    // phải còn nguyên — brand lỗi không được xoá hay tụt hạng chúng.
+    expect(saved.pages.length).toBe(5);
+    expect(saved.chunkCount).toBeGreaterThan(0);
   });
 
   it("backend chết thì tụt hạng, lưu dữ liệu mẫu và đánh dấu degraded", async () => {
