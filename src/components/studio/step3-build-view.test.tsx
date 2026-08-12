@@ -135,8 +135,6 @@ describe("Step3BuildView", () => {
       <Step2ProductView
         product="chat"
         onSelect={vi.fn()}
-        voiceId={null}
-        onVoiceChange={vi.fn()}
         onBack={vi.fn()}
         onContinue={vi.fn()}
         saving={false}

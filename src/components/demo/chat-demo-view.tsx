@@ -3,6 +3,7 @@
 import { Bot, Send, User } from "lucide-react";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
+import { useStickToBottom } from "~/hooks/use-stick-to-bottom";
 import { cn } from "~/lib/utils";
 
 export interface ChatMessage {
@@ -22,9 +23,18 @@ export interface ChatViewProps {
 }
 
 export function ChatDemoView(p: ChatViewProps) {
+  // Khung thoại cao cố định, nên tin mới nằm NGOÀI vùng thấy được nếu không ai kéo
+  // nó xuống: người dùng gửi câu hỏi rồi tưởng bot không trả lời. `sending` cũng
+  // nằm trong signal vì chỉ báo đang gõ làm nội dung cao thêm.
+  const scrollRef = useStickToBottom<HTMLDivElement>(`${p.messages.length}:${p.sending}`);
+
   return (
     <div className="flex flex-col">
-      <div className="flex h-[380px] flex-col gap-3.5 overflow-y-auto bg-gray-25 p-5">
+      <div
+        ref={scrollRef}
+        data-testid="chat-scroll"
+        className="flex h-[380px] flex-col gap-3.5 overflow-y-auto bg-gray-25 p-5"
+      >
         {p.messages.map((m, i) => {
           const isUser = m.role === "user";
           return (

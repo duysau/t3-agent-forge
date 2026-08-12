@@ -31,13 +31,21 @@ function SelectValue({
   return <SelectPrimitive.Value data-slot="select-value" {...props} />
 }
 
+/**
+ * `chevron={false}` cho trigger CHỈ CÓ ICON (thanh header): ở đó mũi xuống ngốn 20px
+ * trên một nút 44px mà không nói thêm gì — icon đã đổi theo lựa chọn hiện tại, và
+ * `aria-label`/`title` mới là chỗ nói tên. Mặc định vẫn `true` nên mọi select trong
+ * form không đổi một pixel.
+ */
 function SelectTrigger({
   className,
   size = "default",
+  chevron = true,
   children,
   ...props
 }: React.ComponentProps<typeof SelectPrimitive.Trigger> & {
   size?: "sm" | "default"
+  chevron?: boolean
 }) {
   return (
     <SelectPrimitive.Trigger
@@ -50,9 +58,11 @@ function SelectTrigger({
       {...props}
     >
       {children}
-      <SelectPrimitive.Icon asChild>
-        <ChevronDownIcon className="pointer-events-none size-4 text-muted-foreground" />
-      </SelectPrimitive.Icon>
+      {chevron && (
+        <SelectPrimitive.Icon asChild>
+          <ChevronDownIcon className="pointer-events-none size-4 text-muted-foreground" />
+        </SelectPrimitive.Icon>
+      )}
     </SelectPrimitive.Trigger>
   )
 }
@@ -103,25 +113,55 @@ function SelectLabel({
   )
 }
 
+/**
+ * Hai cách đánh dấu mục đang chọn:
+ *
+ * - `check` (mặc định) — dấu tick ở lề phải, đúng kiểu shadcn gốc. Dùng cho select
+ *   trong form, nơi trigger đã vẽ lại nhãn của mục đang chọn.
+ * - `fill` — tô kín cả dòng bằng `primary`, không có tick. Dùng cho select icon-only
+ *   trên header: trigger ở đó không có chỗ cho chữ, nên danh sách là chỗ DUY NHẤT nói
+ *   được đang bật cái nào, và một dấu tick 16px ở lề phải là tín hiệu yếu hơn nhiều so
+ *   với cả dòng đổi màu.
+ *
+ * Hai nhánh khai class RIÊNG, `fill` không ghi đè lên `check`: nhánh `check` có
+ * `**:text-accent-foreground` (hover thì bắt mọi phần tử con đổi màu) — trên một dòng
+ * đã tô kín xanh, rule đó biến icon thành xanh đậm trên nền xanh đậm. Chữa bằng cách
+ * thêm utility ngược lại sẽ ra hai selector CÙNG specificity, thắng thua tuỳ thứ tự
+ * Tailwind sinh CSS. Tách nhánh thì rule đó đơn giản là không tồn tại ở `fill`.
+ */
 function SelectItem({
   className,
   children,
+  selected = "check",
   ...props
-}: React.ComponentProps<typeof SelectPrimitive.Item>) {
+}: React.ComponentProps<typeof SelectPrimitive.Item> & {
+  selected?: "check" | "fill"
+}) {
   return (
     <SelectPrimitive.Item
       data-slot="select-item"
       className={cn(
-        "relative flex w-full cursor-default items-center gap-2 rounded-sm py-1.5 pr-8 pl-2 text-sm outline-hidden select-none focus:bg-accent focus:text-accent-foreground not-data-[variant=destructive]:focus:**:text-accent-foreground data-disabled:pointer-events-none data-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 *:[span]:last:flex *:[span]:last:items-center *:[span]:last:gap-2",
+        "relative flex w-full cursor-default items-center gap-2 rounded-sm py-1.5 pl-2 text-sm outline-hidden select-none focus:bg-accent focus:text-accent-foreground data-disabled:pointer-events-none data-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 *:[span]:last:flex *:[span]:last:items-center *:[span]:last:gap-2",
+        selected === "check"
+          ? "pr-8 not-data-[variant=destructive]:focus:**:text-accent-foreground"
+          : // `data-[state=checked]:focus:*` (hai variant → specificity cao hơn
+            // `focus:*` một bậc) nên dòng đang chọn KHÔNG bị hover phủ `accent` lên —
+            // không phụ thuộc thứ tự class. Hover/di bàn phím lên chính dòng đó thì
+            // thêm viền trong sáng: nền vẫn `primary` để chữ trắng giữ đủ tương phản ở
+            // cả hai theme, thay vì làm nền sáng lên (`fci-600` ở dark là #8ba0f4 —
+            // chữ trắng trên đó chỉ còn 2.4:1).
+            "pr-2 data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground data-[state=checked]:focus:bg-primary data-[state=checked]:focus:text-primary-foreground data-[state=checked]:focus:inset-ring-2 data-[state=checked]:focus:inset-ring-primary-foreground/55",
         className
       )}
       {...props}
     >
-      <span className="pointer-events-none absolute right-2 flex size-4 items-center justify-center">
-        <SelectPrimitive.ItemIndicator>
-          <CheckIcon className="pointer-events-none" />
-        </SelectPrimitive.ItemIndicator>
-      </span>
+      {selected === "check" && (
+        <span className="pointer-events-none absolute right-2 flex size-4 items-center justify-center">
+          <SelectPrimitive.ItemIndicator>
+            <CheckIcon className="pointer-events-none" />
+          </SelectPrimitive.ItemIndicator>
+        </span>
+      )}
       <SelectPrimitive.ItemText>{children}</SelectPrimitive.ItemText>
     </SelectPrimitive.Item>
   )

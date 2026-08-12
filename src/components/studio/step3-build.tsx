@@ -94,6 +94,20 @@ export function Step3Build({
           ...l,
           { kind: "ok", text: `Persona: ${built.persona.name} · ${built.persona.role}` },
           { kind: "ok", text: `${built.guardrails.length} guardrails` },
+          // Chỉ có ở build `product: "voice"`: backend tự đẩy KB lên agent voice
+          // nền tảng ngay trong lượt build. Con số fact là bằng chứng duy nhất
+          // nhìn thấy được rằng lượt publish đã xảy ra — không in nó thì một lượt
+          // publish đẩy 0 fact trông y hệt một lượt thành công.
+          ...(built.voicePublish
+            ? [
+                {
+                  kind: "ok" as const,
+                  text: `Đã đẩy ${built.voicePublish.facts ?? 0} fact lên agent voice${
+                    built.voicePublish.siteName ? ` · ${built.voicePublish.siteName}` : ""
+                  }`,
+                },
+              ]
+            : []),
           { kind: "info", text: "Đang sinh 20 test case và chấm điểm bằng LLM-judge…" },
         ]);
 

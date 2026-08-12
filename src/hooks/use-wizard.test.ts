@@ -54,13 +54,18 @@ describe("useWizard", () => {
     expect(result.current.canGoTo(2)).toBe(true);
   });
 
-  it("chọn voice thì giữ voiceId, đổi sang chat thì xoá", () => {
+  /**
+   * `voiceId` đã bị gỡ khỏi wizard: giọng do agent voice của nền tảng quyết định,
+   * frontend không chọn được, nên Bước 2 không còn dropdown nào. Test cũ ("chọn
+   * voice thì giữ voiceId, đổi sang chat thì xoá") chấm cho một lựa chọn không còn
+   * tồn tại. Điều còn lại đáng chốt: đổi sản phẩm vẫn cập nhật được cả hai chiều.
+   */
+  it("đổi sản phẩm qua lại giữa voice và chat", () => {
     const { result } = renderHook(() => useWizard());
     act(() => result.current.setProduct("voice"));
-    act(() => result.current.setVoiceId("std_kimngan"));
-    expect(result.current.voiceId).toBe("std_kimngan");
+    expect(result.current.product).toBe("voice");
     act(() => result.current.setProduct("chat"));
-    expect(result.current.voiceId).toBeNull();
+    expect(result.current.product).toBe("chat");
   });
 
   it("reset đưa về trạng thái đầu", () => {

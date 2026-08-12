@@ -3,16 +3,7 @@
 import { ArrowLeft, ArrowRight, Check, MessageSquare, Mic } from "lucide-react";
 import type { ComponentType } from "react";
 import { Button } from "~/components/ui/button";
-import { Label } from "~/components/ui/label";
 import { Panel, PanelBody, PanelFoot, PanelSub, PanelTitle } from "~/components/ui/panel";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "~/components/ui/select";
-import { VOICES } from "~/lib/voices";
 import { cn } from "~/lib/utils";
 
 type Product = "chat" | "voice";
@@ -57,16 +48,12 @@ const CARDS: Array<{
 export function Step2ProductView({
   product,
   onSelect,
-  voiceId,
-  onVoiceChange,
   onBack,
   onContinue,
   saving,
 }: {
   product: Product | null;
   onSelect: (p: Product) => void;
-  voiceId: string | null;
-  onVoiceChange: (id: string) => void;
   onBack: () => void;
   onContinue: () => void;
   saving: boolean;
@@ -133,22 +120,21 @@ export function Step2ProductView({
           })}
         </div>
 
+        {/*
+          Ở đây từng có dropdown chọn giọng (`std_kimngan` / `std_minhquang`). Đã
+          GỠ, có chủ đích: giọng nằm trong Agent Profile của gateway
+          (`voice`/`voiceSpeed` trong `agents.local.yaml`) và do backend đặt lúc
+          publish KB — frontend không có lời gọi nào để đổi nó. Một dropdown không
+          điều khiển được gì là UI nói dối: người demo chọn "Nam", nghe ra giọng nữ,
+          rồi đi tìm lỗi ở chỗ không có lỗi. Cột `voiceId` trong DB vẫn được ghi giá
+          trị mặc định nên không cần migration, và khi backend nhận tham số giọng ở
+          `/api/voice/publish` thì chỗ này quay lại được.
+        */}
         {product === "voice" && (
-          <div className="mt-6 max-w-sm">
-            <Label htmlFor="voice">Giọng đọc voicebot</Label>
-            <Select value={voiceId ?? VOICES[0].id} onValueChange={onVoiceChange}>
-              <SelectTrigger id="voice" className="mt-1.5 w-full">
-                <SelectValue placeholder="Chọn giọng" />
-              </SelectTrigger>
-              <SelectContent>
-                {VOICES.map((v) => (
-                  <SelectItem key={v.id} value={v.id}>
-                    {v.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          <p className="mt-6 max-w-xl rounded-xl bg-gray-50 px-4 py-3 text-[13px] text-gray-600">
+            Giọng đọc được cấu hình trên agent voice của nền tảng FPT, không chọn ở bước này. Cuộc
+            gọi thử nằm ở Bước 4, sau khi dựng xong.
+          </p>
         )}
       </PanelBody>
 

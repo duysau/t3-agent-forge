@@ -35,10 +35,32 @@ describe("SiteHeader", () => {
     expect(login).toHaveAttribute("title", expect.stringContaining("chưa"));
   });
 
-  it("lang toggle đánh dấu tiếng Việt đang bật", () => {
+  /**
+   * "VIE | ENG" (chữ tĩnh) và nút bật-tắt sáng/tối đã được thay bằng hai dropdown.
+   * Hành vi của từng cái nằm trong `language-select.test.tsx` và
+   * `theme-select.test.tsx`; ở đây chỉ chốt việc header có đủ hai điều khiển đó.
+   */
+  it("có dropdown ngôn ngữ và dropdown giao diện", () => {
     render(<SiteHeader />);
-    expect(screen.getByText("VIE")).toBeInTheDocument();
-    expect(screen.getByText("ENG")).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: /ngôn ngữ/i })).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: /giao diện/i })).toBeInTheDocument();
+  });
+
+  /**
+   * Hai dropdown cài đặt phải nằm NGOÀI `#header-controls` — khối duy nhất bị
+   * `display:none` khi menu đóng ở màn hẹp. Nằm trong đó nghĩa là ở mobile muốn đổi
+   * ngôn ngữ hay sáng/tối thì phải mở menu trước: ba lần chạm cho một việc
+   * làm-rồi-xong, mà lại là hai việc hay dùng nhất trên mobile.
+   *
+   * Đây là điều kiện KHÔNG kiểm được bằng bề ngoài (jsdom không có layout, và ở
+   * jsdom không có media query nào áp dụng), nhưng kiểm được bằng cây DOM.
+   */
+  it("hai dropdown cài đặt không nằm trong khối bị gập vào menu", () => {
+    render(<SiteHeader />);
+
+    const collapsed = screen.getByTestId("header-controls");
+    expect(collapsed).not.toContainElement(screen.getByRole("combobox", { name: /ngôn ngữ/i }));
+    expect(collapsed).not.toContainElement(screen.getByRole("combobox", { name: /giao diện/i }));
   });
 
   describe("menu mobile", () => {
@@ -110,5 +132,32 @@ describe("SiteHeader", () => {
       const links = screen.getAllByRole("link");
       expect(links.map((a) => a.textContent)).toEqual(["Dùng thử miễn phí"]);
     });
+  });
+});
+
+/**
+ * Header là MỘT hàng flex chứa logo + nav + bốn điều khiển. Thêm hai dropdown vào là
+ * hàng đó vượt trần và nav bắt đầu ngắt dòng giữa chữ ("Sản / phẩm") — đã xảy ra
+ * thật ở ~1320px. Hai điều kiện dưới đây là thứ giữ cho nó không tái diễn.
+ */
+describe("SiteHeader bố cục một hàng", () => {
+  it("không mục nav nào được phép ngắt dòng", () => {
+    render(<SiteHeader />);
+
+    const nav = screen.getByRole("navigation", { name: /Điều hướng chính/ });
+    expect(nav.className).toMatch(/whitespace-nowrap/);
+  });
+
+  /**
+   * Nav là nhóm rộng nhất mà cũng ít giá trị nhất — mấy mục đó là `span`, chưa dẫn
+   * tới trang nào. Nên khi hết chỗ, nav biến mất TRƯỚC các điều khiển thật, và ngưỡng
+   * đó phải cao hơn 900px (ngưỡng gập cả nhóm điều khiển vào panel).
+   */
+  it("nav chỉ hiện ở màn đủ rộng, cao hơn ngưỡng gập panel 900px", () => {
+    render(<SiteHeader />);
+
+    const nav = screen.getByRole("navigation", { name: /Điều hướng chính/ });
+    const breakpoint = /min-\[(\d+)px\]:flex/.exec(nav.className)?.[1];
+    expect(Number(breakpoint)).toBeGreaterThan(900);
   });
 });

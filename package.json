@@ -12,6 +12,7 @@
     "dev": "next dev --turbo",
     "lint": "eslint .",
     "preview": "next build && next start",
+    "probe:voice": "bun run scripts/probe-voice.ts",
     "record:responses": "bun run scripts/record-responses.ts",
     "start": "next start",
     "test": "vitest run",

@@ -1,23 +1,19 @@
 "use client";
 
 import { api } from "~/trpc/react";
-import { DEFAULT_VOICE_ID, type VoiceId } from "~/lib/voices";
+import { DEFAULT_VOICE_ID } from "~/lib/voices";
 import { Step2ProductView } from "./step2-product-view";
 
 export function Step2Product({
   slug,
   product,
-  voiceId,
   onSelectProduct,
-  onVoiceChange,
   onBack,
   onSaved,
 }: {
   slug: string;
   product: "chat" | "voice" | null;
-  voiceId: string | null;
   onSelectProduct: (p: "chat" | "voice") => void;
-  onVoiceChange: (id: string) => void;
   onBack: () => void;
   onSaved: () => void;
 }) {
@@ -27,8 +23,6 @@ export function Step2Product({
     <Step2ProductView
       product={product}
       onSelect={onSelectProduct}
-      voiceId={voiceId}
-      onVoiceChange={onVoiceChange}
       onBack={onBack}
       saving={setProduct.isPending}
       onContinue={() => {
@@ -36,9 +30,10 @@ export function Step2Product({
         setProduct.mutate({
           slug,
           product,
-          // voiceId ở wizard là string thô (Task 13 chưa biết về VoiceId); router
-          // xác thực lại bằng zod enum nên ép kiểu ở đây là an toàn.
-          voiceId: product === "voice" ? ((voiceId ?? DEFAULT_VOICE_ID) as VoiceId) : undefined,
+          // Luôn là giọng mặc định: người dùng không còn chọn giọng ở Bước 2 (giọng
+          // do agent voice của nền tảng quyết định — xem `Step2ProductView`). Vẫn
+          // gửi để cột `voiceId` có giá trị và contract của router không đổi.
+          voiceId: product === "voice" ? DEFAULT_VOICE_ID : undefined,
         });
       }}
     />

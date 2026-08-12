@@ -18,6 +18,16 @@ const BUILD_RESULT = {
   systemPrompt: "Bạn là Sen, nhân viên tư vấn của Sen Spa.",
   guardrails: ["Không cam kết điều trị y khoa", "Không bịa giá"],
   industry: "spa",
+  voicePublish: null,
+};
+
+const PUBLISH_RESULT = {
+  sessionId: "sid",
+  siteName: "Sen Spa",
+  facts: 70,
+  knowledgeId: "kb_1",
+  agentId: "ag_1",
+  message: "Đã đẩy KB lên agent voice",
 };
 
 let h: Harness;
@@ -124,6 +134,25 @@ describe("agent.build", () => {
     await api.agent.build({ slug: agent.slug });
 
     expect(build).toHaveBeenCalledWith(expect.objectContaining({ product: "voice" }));
+  });
+
+  /**
+   * Build voice publish luôn KB lên agent voice nền tảng. Kết quả đó phải đi
+   * tiếp tới UI: nếu router nuốt nó, một lượt build voice không có bằng chứng
+   * nhìn thấy được nào là đã publish — kể cả khi nó đẩy 0 fact.
+   */
+  it("chuyển tiếp kết quả publish voice của lượt build ra ngoài", async () => {
+    const agent = await h.seedAgent();
+    const build = vi
+      .fn()
+      .mockResolvedValue({ ...BUILD_RESULT, voicePublish: PUBLISH_RESULT });
+
+    const api = h.caller({ source: h.source({ build }) });
+    await api.agent.setProduct({ slug: agent.slug, product: "voice" });
+
+    const out = await api.agent.build({ slug: agent.slug });
+
+    expect(out.voicePublish?.facts).toBe(70);
   });
 
   it("session chết thì tự hồi sinh rồi build lại, người dùng không thấy lỗi", async () => {
@@ -395,5 +424,75 @@ describe("agent.evalRun", () => {
 
     const stillStored = await getLatestEvalRun(h.db, agent.id);
     expect(stillStored).toBeDefined();
+  });
+});
+
+describe("agent.publishVoice", () => {
+  /**
+   * Agent voice trên nền tảng FPT là MỘT agent dùng chung: publish KB của
+   * session nào là ghi đè lên nó, toàn cục. Nên trước mỗi cuộc gọi demo phải
+   * đẩy lại KB của đúng agent đang xem — nguồn sự thật nằm ở nền tảng, không
+   * phải ở DB của mình, nên không có cách nào "biết" mà bỏ qua bước này.
+   */
+  it("đẩy KB của session lên agent voice, đặt site_name theo tên thương hiệu", async () => {
+    const agent = await h.seedAgent();
+    const publishVoice = vi.fn().mockResolvedValue(PUBLISH_RESULT);
+
+    const api = h.caller({ source: h.source({ publishVoice }) });
+    await api.agent.setProduct({ slug: agent.slug, product: "voice" });
+    await api.agent.build({ slug: agent.slug });
+
+    const out = await api.agent.publishVoice({ slug: agent.slug });
+
+    expect(out.facts).toBe(70);
+    expect(publishVoice).toHaveBeenCalledWith({ sessionId: "sid", siteName: "Sen Spa" });
+  });
+
+  /**
+   * `site_name` là tên data source hiện trên console FPT — nó là thứ duy nhất
+   * để phân biệt lượt publish này với lượt của người khác trên cùng agent dùng
+   * chung. Agent chưa build thì chưa có `brandName`, nhưng vẫn phải có tên.
+   */
+  it("thiếu tên thương hiệu thì lấy host của URL nguồn làm site_name", async () => {
+    const agent = await h.seedAgent();
+    const publishVoice = vi.fn().mockResolvedValue(PUBLISH_RESULT);
+
+    const api = h.caller({ source: h.source({ publishVoice }) });
+    await api.agent.setProduct({ slug: agent.slug, product: "voice" });
+
+    await api.agent.publishVoice({ slug: agent.slug });
+
+    expect(publishVoice).toHaveBeenCalledWith({ sessionId: "sid", siteName: "senspa.vn" });
+  });
+
+  it("từ chối khi agent chưa chọn sản phẩm voice", async () => {
+    const agent = await h.seedAgent();
+    const api = h.caller();
+    await api.agent.setProduct({ slug: agent.slug, product: "chat" });
+
+    const err: unknown = await api.agent
+      .publishVoice({ slug: agent.slug })
+      .then(() => null, (e: unknown) => e);
+
+    expect(err).toBeInstanceOf(TRPCError);
+    expect((err as TRPCError).code).toBe("BAD_REQUEST");
+  });
+
+  it("session chết thì hồi sinh rồi publish lại", async () => {
+    const agent = await h.seedAgent();
+    const publishVoice = vi
+      .fn()
+      .mockRejectedValueOnce(new AgentForgeError("session_missing", "chết", 404))
+      .mockResolvedValueOnce(PUBLISH_RESULT);
+    const restore = vi.fn().mockResolvedValue({ sessionId: "sid-moi", chunksIngested: 2 });
+
+    const api = h.caller({ source: h.source({ publishVoice, restore }) });
+    await api.agent.setProduct({ slug: agent.slug, product: "voice" });
+
+    const out = await api.agent.publishVoice({ slug: agent.slug });
+
+    expect(out.facts).toBe(70);
+    expect(restore).toHaveBeenCalledTimes(1);
+    expect(publishVoice).toHaveBeenCalledTimes(2);
   });
 });

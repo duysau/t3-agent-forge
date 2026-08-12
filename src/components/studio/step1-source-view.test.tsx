@@ -280,3 +280,73 @@ describe("Step1SourceView", () => {
     expect(screen.queryByTestId('facts-heuristic-warning')).not.toBeInTheDocument();
   });
 });
+
+/**
+ * Crawl là bước chờ lâu nhất mà người dùng phải nhìn: tới 20 trang, thường 1–3
+ * phút, và client tự dừng ở 300 giây (`TIMEOUTS.crawl`). Khối chờ vì thế phải làm
+ * ba việc — nói nó đang chạy, nói còn phải chờ bao lâu nữa là bình thường, và
+ * KHÔNG bịa ra một tỷ lệ phần trăm nào.
+ */
+describe("Step1SourceView trong lúc chờ crawl", () => {
+  it("thanh tiến độ là indeterminate — không có aria-valuenow để bịa tiến độ", () => {
+    render(<Step1SourceView {...props({ crawling: true, elapsedSeconds: 3 })} />);
+
+    const bar = screen.getByRole("progressbar");
+    // Theo ARIA, progressbar KHÔNG có `aria-valuenow` nghĩa là "không biết tiến độ".
+    // Backend không stream gì, nên đây là sự thật duy nhất nói được.
+    expect(bar).not.toHaveAttribute("aria-valuenow");
+  });
+
+  it("khối chờ là live region để screen reader biết đang có việc chạy", () => {
+    render(<Step1SourceView {...props({ crawling: true, elapsedSeconds: 3 })} />);
+
+    expect(screen.getByRole("status")).toHaveTextContent(/đang crawl/i);
+  });
+
+  it("mới bắt đầu thì nói trước khoảng thời gian phải chờ", () => {
+    render(<Step1SourceView {...props({ crawling: true, elapsedSeconds: 3 })} />);
+
+    expect(screen.getByRole("status")).toHaveTextContent(/phút/i);
+  });
+
+  /**
+   * Sau ~1 phút, một thanh chạy không kèm lời nào trông y như treo. Người dùng sẽ
+   * bấm lại hoặc rời trang — cả hai đều mất lượt crawl đang chạy dở.
+   */
+  it("chờ lâu thì trấn an rằng site nhiều trang mất thời gian hơn", () => {
+    render(<Step1SourceView {...props({ crawling: true, elapsedSeconds: 70 })} />);
+
+    expect(screen.getByRole("status")).toHaveTextContent(/nhiều trang|vẫn đang/i);
+  });
+
+  it("chờ rất lâu thì nói rõ mốc tự dừng, không để người dùng chờ vô hạn", () => {
+    render(<Step1SourceView {...props({ crawling: true, elapsedSeconds: 200 })} />);
+
+    expect(screen.getByRole("status")).toHaveTextContent(/5 phút|dừng/i);
+  });
+
+  it("crawl xong thì khối chờ biến mất", () => {
+    render(<Step1SourceView {...props({ crawling: false, elapsedSeconds: 200 })} />);
+
+    expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
+  });
+});
+
+/**
+ * Nút Crawl và ô nhập URL nằm cạnh nhau trong một hàng flex, nên hai chiều cao lệch
+ * nhau là thấy ngay: `size: default` của `Button` (shadcn) ghim `h-9` = 36px, còn ô
+ * nhập cao ~47px vì chiều cao của nó do padding sinh ra (`py-3` + `text-[15px]`,
+ * xem chú thích dài trong component). Ghim một con số cho nút là hỏng lại ngay lần
+ * ai đó đổi padding ô nhập — nên nút phải CO THEO hàng, không mang chiều cao riêng.
+ */
+describe("Step1SourceView bố cục hàng URL", () => {
+  it("nút Crawl cao theo hàng, không giữ h-9 của Button", () => {
+    render(<Step1SourceView {...props({ url: "https://senspa.vn" })} />);
+
+    // Tên khớp CHÍNH XÁC: ô chọn PDF cũng là một `button` và nhãn của nó chứa
+    // "Crawl website trước đã", nên một regex /Crawl website/ khớp cả hai.
+    const button = screen.getByRole("button", { name: "Crawl website" });
+    expect(button.className).not.toMatch(/(?:^|\s)h-9(?:\s|$)/);
+    expect(button.className).toMatch(/self-stretch/);
+  });
+});

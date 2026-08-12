@@ -2,7 +2,7 @@ import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { StrictMode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { EvalResult, Persona } from "~/server/agentforge/schemas";
+import type { EvalResult, Persona, VoicePublishResult } from "~/server/agentforge/schemas";
 import type { StoredEvalResult } from "~/server/db/queries/eval";
 import { Step3Build } from "./step3-build";
 import type { Step3ViewProps } from "./step3-build-view";
@@ -14,6 +14,8 @@ interface BuildOutput {
   persona: Persona;
   systemPrompt: string;
   guardrails: string[];
+  /** Chỉ khác null với build `product: "voice"` — xem `voicePublishResponse`. */
+  voicePublish?: VoicePublishResult | null;
 }
 interface EvalInput {
   slug: string;
@@ -493,5 +495,48 @@ describe("Step3Build", () => {
     expect(notifyOk).not.toHaveBeenCalledWith("Đã lưu câu trả lời");
     // Ô nhập còn nguyên đoạn vừa gõ, và câu trả lời đã lưu chưa bị đổi.
     expect(screen.getByRole("textbox")).toHaveValue("đã sửa");
+  });
+
+/**
+ * Build `product: "voice"` đẩy luôn KB lên agent voice nền tảng và trả về
+ * `voice_publish` (`frontend-handoff-1.md` §2.4). Con số fact đã đẩy là bằng
+ * chứng DUY NHẤT nhìn thấy được rằng lượt publish có xảy ra — không hiện nó thì
+ * một lượt build voice và một lượt build chat trông giống nhau hoàn toàn, kể cả
+ * khi publish âm thầm đẩy 0 fact.
+ *
+ * Nằm TRONG `describe("Step3Build")` để dùng `beforeEach` của nó: hai query stub
+ * (`evalRunQuery`, `artifactsQuery`) là object dùng chung bị các test khác ghi
+ * vào, và một describe riêng sẽ kế thừa `data` còn sót của test chạy trước —
+ * Bước 3 khi đó hydrate từ dữ liệu đã lưu và không gọi build lần nào.
+ */
+  it("hiện số fact đã đẩy lên agent voice sau khi build", async () => {
+    buildMutation.mutateAsync.mockResolvedValue({
+      ...BUILT,
+      voicePublish: {
+        sessionId: "sid",
+        siteName: "senspa.vn",
+        facts: 70,
+        knowledgeId: "kb_1",
+        agentId: "ag_1",
+        message: "ok",
+      },
+    });
+    evaluateMutation.mutateAsync.mockResolvedValue(EVALUATED);
+
+    renderStep3Build();
+
+    await waitFor(() => {
+      expect(screen.getByText(/70 fact.*agent voice/i)).toBeInTheDocument();
+    });
+  });
+
+  it("build chat không có lượt publish thì không hiện dòng nào về agent voice", async () => {
+    buildMutation.mutateAsync.mockResolvedValue({ ...BUILT, voicePublish: null });
+    evaluateMutation.mutateAsync.mockResolvedValue(EVALUATED);
+
+    renderStep3Build();
+
+    await waitFor(() => expect(screen.getByText(/Persona: Sen/)).toBeInTheDocument());
+    expect(screen.queryByText(/agent voice/i)).not.toBeInTheDocument();
   });
 });

@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Menu, X } from "lucide-react";
-import { ThemeToggle } from "./theme-toggle";
+import { LanguageSelect } from "./language-select";
+import { ThemeSelect } from "./theme-select";
 
 const NAV = ["Sản phẩm", "Giải pháp", "Bảng giá", "Tài liệu", "Về FPT.AI"];
 
@@ -45,23 +46,56 @@ export function SiteHeader() {
 
   return (
     <header className="sticky top-0 z-50 border-b border-border bg-surface/90 backdrop-blur-md">
-      <div className="mx-auto flex h-17 max-w-[1160px] items-center gap-8 px-6 max-[640px]:px-4">
-        <div className="flex items-center gap-2.5">
-          <span className="grid size-[34px] place-items-center rounded-[9px] bg-linear-135 from-fci-400 to-fci-600 text-[17px] font-extrabold text-white shadow-glow">
+      {/*
+        `max-[900px]:gap-3`: dưới 900px hàng này gánh thêm hai nút cài đặt (44px mỗi
+        nút) vì chúng không còn gập vào panel nữa. Giữ `gap-6` ở đó thì riêng khoảng
+        trống đã là 72px, và ở màn 320px không đủ chỗ cho logo + hai nút + hamburger.
+      */}
+      <div className="mx-auto flex h-17 max-w-[1160px] items-center gap-6 px-6 max-[900px]:gap-3 max-[640px]:px-4">
+        {/*
+          Khối thương hiệu ĐƯỢC PHÉP co, và co bằng `truncate` chứ không bằng ngắt dòng:
+          mỗi dòng chữ `overflow-hidden` + `nowrap`, nên khi hết chỗ nó thành "AgentFor…"
+          thay vì đẩy hamburger ra khỏi viewport. Đây là thứ phải nhường: ở màn hẹp,
+          hai nút cài đặt và nút menu là thứ người dùng BẤM, còn tên sản phẩm thì chỉ để
+          đọc — và vẫn còn nguyên trong `<title>` của trang.
+
+          `shrink-0` trên riêng ô logo: nó là hình vuông 34px, co lại thì méo chữ "A".
+        */}
+        <div className="flex min-w-0 items-center gap-2.5">
+          <span className="grid size-[34px] shrink-0 place-items-center rounded-[9px] bg-linear-135 from-fci-400 to-fci-600 text-[17px] font-extrabold text-white shadow-glow">
             A
           </span>
-          <div className="text-[19px] font-extrabold tracking-[-0.02em] leading-tight">
-            AgentForge
-            <div className="text-xs font-medium tracking-normal text-gray-500">
+          <div className="min-w-0 text-[19px] font-extrabold tracking-[-0.02em] leading-tight">
+            <div className="truncate">AgentForge</div>
+            <div className="truncate text-xs font-medium tracking-normal text-gray-500">
               by FPT Smart Cloud
             </div>
           </div>
         </div>
 
-        {/* Chưa có trang nào để dẫn tới, nên đây là chữ, không phải link:
-            một <a href="#"> vẫn được đọc là link và vẫn nhận focus — tức là
-            hứa một tính năng không tồn tại. */}
-        <nav aria-label="Điều hướng chính" className="hidden gap-[26px] text-[15px] font-medium text-gray-600 min-[900px]:flex">
+        {/*
+          Chưa có trang nào để dẫn tới, nên đây là chữ, không phải link: một
+          <a href="#"> vẫn được đọc là link và vẫn nhận focus — tức là hứa một tính
+          năng không tồn tại.
+
+          Ngưỡng hiện là 1120px, KHÔNG phải 900px như trước. Sau khi hai điều khiển
+          "VIE | ENG" và nút sáng/tối thành dropdown, hàng header rộng thêm ~200px và
+          nav bắt đầu ngắt dòng giữa chữ ("Sản / phẩm") ở ~1320px. Nav là nhóm rộng
+          nhất mà cũng ít giá trị nhất — mấy mục này chưa dẫn tới đâu — nên nó là thứ
+          biến mất TRƯỚC khi các điều khiển thật bị co. Khoảng 900–1120px vì thế chỉ
+          còn logo + điều khiển, vẫn thừa chỗ.
+
+          Sau khi trigger ngôn ngữ thành icon-only, hàng này hẹp lại ~90px nên 1120px
+          giờ là ngưỡng thừa an toàn. Giữ nguyên chứ không hạ xuống: mấy mục nav vẫn
+          chưa dẫn tới trang nào, nên đổi lấy chỗ cho chúng không được gì.
+
+          `whitespace-nowrap` để trong mọi trường hợp còn lại, mục nav thà tràn chứ
+          không gãy chữ.
+        */}
+        <nav
+          aria-label="Điều hướng chính"
+          className="hidden gap-6 text-[15px] font-medium whitespace-nowrap text-gray-600 min-[1120px]:flex"
+        >
           {NAV.map((label, i) => (
             <span key={label} className={i === 0 ? "font-semibold text-primary" : undefined}>
               {label}
@@ -72,7 +106,27 @@ export function SiteHeader() {
         <div className="flex-1" />
 
         {/*
-          Nhóm điều khiển thật. Dưới 900px nó chuyển vào panel bung xuống, nhưng
+          Hai dropdown cài đặt — thay cho cặp "VIE | ENG" (chữ tĩnh, không bấm được) và
+          nút bật-tắt sáng/tối. Ngoài chuyện nhìn ra ngay là điều khiển được, dropdown
+          theme còn thêm một lựa chọn mà nút bật-tắt không thể có: "theo hệ thống".
+
+          Chúng nằm NGOÀI `#header-controls`, tức KHÔNG gập vào panel hamburger ở màn
+          hẹp — đây là điểm khác so với trước. Đổi ngôn ngữ và đổi sáng/tối là hai việc
+          làm-rồi-xong, không phải điều hướng: bắt người dùng mở menu rồi tìm trong đó
+          là ba lần chạm cho một việc, mà lại là chính hai việc hay dùng nhất trên
+          mobile. Trigger đã là ô vuông 44px icon-only nên chúng vừa chỗ ngay trên hàng
+          header cạnh nút menu.
+
+          `gap-0.5` chứ không phải `gap-3.5`: hai nút này là một CẶP (cùng là cài đặt
+          hiển thị), nên phải đọc ra là một nhóm, tách khỏi nhóm login/CTA bên cạnh.
+        */}
+        <div className="flex shrink-0 items-center gap-0.5">
+          <LanguageSelect />
+          <ThemeSelect />
+        </div>
+
+        {/*
+          Nhóm điều hướng/tài khoản. Dưới 900px nó chuyển vào panel bung xuống, nhưng
           vẫn là MỘT bản duy nhất trong DOM — không nhân đôi thành bản desktop +
           bản mobile. Nhân đôi nghĩa là hai `<a href="#studio">` cùng tên cho
           screen reader, và hai chỗ phải sửa mỗi lần đổi CTA.
@@ -95,20 +149,14 @@ export function SiteHeader() {
             open ? "max-[900px]:flex" : "max-[900px]:hidden",
           ].join(" ")}
         >
-          <div className="flex items-center gap-3.5 max-[900px]:justify-between">
-            <div className="flex gap-1.5 text-[13px] font-semibold text-gray-500">
-              <span className="text-gray-900">VIE</span>|<span>ENG</span>
-            </div>
-            <ThemeToggle />
-            <button
-              type="button"
-              disabled
-              title="Bản dùng thử chưa cần đăng nhập"
-              className="inline-flex min-h-11 items-center rounded-md px-3 text-[13px] font-semibold text-gray-600 opacity-50"
-            >
-              Đăng nhập
-            </button>
-          </div>
+          <button
+            type="button"
+            disabled
+            title="Bản dùng thử chưa cần đăng nhập"
+            className="inline-flex min-h-11 items-center rounded-md px-3 text-[13px] font-semibold text-gray-600 opacity-50 max-[900px]:justify-center"
+          >
+            Đăng nhập
+          </button>
           {/*
             `min-h-11` (44px) là ngưỡng touch target tối thiểu. `py-1.5` cũ cho
             chiều cao ~29px — nhỏ hơn nhiều so với ngón tay, trên đúng nút CTA

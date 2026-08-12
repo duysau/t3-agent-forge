@@ -128,11 +128,17 @@ export async function getAgentAggregateById(
  * crawl, vì build gọi lại `branding.extract_brand()` với KB đầy đủ nên kết quả
  * tốt hơn. **Không** chạm `degraded` hay `fixtureKey`: hai field đó ghi lại việc
  * đã xảy ra ở bước crawl, build không có quyền viết lại lịch sử đó.
+ *
+ * Nhận `Omit<BuildResult, "voicePublish">` chứ không phải cả `BuildResult`, và
+ * đó là một lời khai: kết quả đẩy KB lên agent voice **cố tình không** được lưu.
+ * Nó là báo cáo của MỘT lượt chạy (giống `factsSource` ở Bước 1) và một cột mới
+ * cho nó nghĩa là migration cho một dòng chữ. Kiểu hẹp lại ở đây để lần sau
+ * không ai tưởng hàm này đã lưu nó rồi.
  */
 export async function saveBuildArtifacts(
   db: Db,
   agentId: string,
-  build: BuildResult,
+  build: Omit<BuildResult, "voicePublish">,
 ): Promise<AgentRow> {
   return updateAgent(db, agentId, {
     persona: build.persona,

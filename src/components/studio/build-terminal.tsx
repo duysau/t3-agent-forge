@@ -11,8 +11,9 @@ const TONE: Record<TerminalLine["kind"], string> = {
 
 /**
  * Terminal in dòng tại các mốc THẬT của promise, không mô phỏng tiến độ.
- * Backend không stream gì: build là một call blocking tới 60s, eval tới 300s —
- * nên mọi phần trăm ở đây đều là bịa. Giữa hai mốc chỉ có nhãn và số giây đã trôi.
+ * Backend không stream gì: build là một call blocking tới 300s (build `voice`
+ * còn đẩy KB lên agent voice nền tảng, mất ~2-3 phút), eval cũng tới 300s — nên
+ * mọi phần trăm ở đây đều là bịa. Giữa hai mốc chỉ có nhãn và số giây đã trôi.
  */
 export function BuildTerminal({
   lines,

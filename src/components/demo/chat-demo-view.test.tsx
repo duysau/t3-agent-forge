@@ -125,3 +125,54 @@ describe("ChatDemoView", () => {
     }
   });
 });
+
+/**
+ * Khung thoại là một vùng cao cố định (`h-[380px] overflow-y-auto`), nên nếu không
+ * ai kéo nó xuống thì câu trả lời mới nằm NGOÀI vùng thấy được: người dùng gửi câu
+ * hỏi rồi tưởng bot không trả lời. Đây là bug đã gặp thật trên cả chat và voice.
+ *
+ * jsdom không tính layout (`scrollHeight`/`clientHeight` luôn 0), nên phải fake hai
+ * chiều cao đó — thứ được kiểm ở đây là dây nối tới `useStickToBottom`, còn số học
+ * của việc "có đang theo dõi đáy không" đã kiểm riêng trong test của hook.
+ */
+describe("ChatDemoView tự cuộn", () => {
+  function fakeHeights(el: HTMLElement): void {
+    Object.defineProperty(el, "scrollHeight", { value: 1000, configurable: true });
+    Object.defineProperty(el, "clientHeight", { value: 380, configurable: true });
+  }
+
+  it("tin nhắn mới thì kéo khung thoại xuống đáy", () => {
+    const { rerender } = render(
+      <ChatDemoView {...props({ messages: [{ role: "user", content: "Giá bao nhiêu?" }] })} />,
+    );
+    const region = screen.getByTestId("chat-scroll");
+    fakeHeights(region);
+
+    rerender(
+      <ChatDemoView
+        {...props({
+          messages: [
+            { role: "user", content: "Giá bao nhiêu?" },
+            { role: "assistant", content: "Dạ 350.000đ ạ." },
+          ],
+        })}
+      />,
+    );
+
+    expect(region.scrollTop).toBe(1000);
+  });
+
+  it("chỉ báo đang trả lời xuất hiện cũng kéo xuống đáy", () => {
+    const { rerender } = render(
+      <ChatDemoView {...props({ messages: [{ role: "user", content: "Giá?" }] })} />,
+    );
+    const region = screen.getByTestId("chat-scroll");
+    fakeHeights(region);
+
+    rerender(
+      <ChatDemoView {...props({ messages: [{ role: "user", content: "Giá?" }], sending: true })} />,
+    );
+
+    expect(region.scrollTop).toBe(1000);
+  });
+});

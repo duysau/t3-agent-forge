@@ -43,6 +43,28 @@ export interface Step1ViewProps {
 
 const FIELD_LABEL = "mb-[7px] block text-sm font-semibold text-gray-700";
 
+/**
+ * Dòng chữ dưới thanh chờ, đổi theo thời gian đã trôi.
+ *
+ * Vì sao cần: crawl là bước chờ lâu nhất mà người dùng phải ngồi nhìn — tới 20
+ * trang, và client chỉ tự dừng ở 300 giây (`TIMEOUTS.crawl`). Một thanh chạy không
+ * kèm lời nào, sau một phút, trông y như treo; người dùng sẽ bấm lại hoặc rời trang,
+ * và cả hai đều mất lượt crawl đang chạy dở (backend vẫn crawl tới cùng, nhưng
+ * không ai nhận kết quả nữa).
+ *
+ * Mọi con số ở đây là số THẬT, không phải lời an ủi: 300 giây là trần
+ * `TIMEOUTS.crawl` của client.
+ */
+export function crawlHint(elapsedSeconds: number): string {
+  if (elapsedSeconds >= 150) {
+    return "Vẫn đang chạy. Quá 5 phút thì lượt crawl tự dừng và báo lỗi — lúc đó thử lại với site khác hoặc dùng kịch bản mẫu.";
+  }
+  if (elapsedSeconds >= 45) {
+    return "Site nhiều trang thì lâu hơn — cứ để yên trang này, đừng bấm lại.";
+  }
+  return "Bóc text từ các trang chính của site, thường mất 1–3 phút. Cứ để yên trang này.";
+}
+
 export function Step1SourceView(p: Step1ViewProps) {
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -86,11 +108,23 @@ export function Step1SourceView(p: Step1ViewProps) {
                 disabled={p.crawling}
                 className="h-auto w-full rounded-lg border border-gray-300 bg-surface px-3.5 py-3 text-[15px] transition-[border-color,box-shadow] focus-visible:border-primary focus-visible:ring-4 focus-visible:ring-fci-50 md:text-[15px]"
               />
-              <Button onClick={p.onCrawl} disabled={p.crawling || p.url.trim().length === 0}>
+              {/*
+                `h-auto self-stretch` để nút cao đúng bằng ô nhập bên cạnh: `size:
+                default` của `Button` ghim `h-9` (36px), còn ô nhập cao ~47px vì chiều
+                cao của nó do padding sinh ra (`py-3` + `text-[15px]`, xem chú thích
+                phía trên). `h-auto` gỡ `h-9` — cùng nhóm utility nên twMerge cho
+                className thắng — rồi `self-stretch` để nút lấy chiều cao của hàng
+                flex. KHÔNG ghim một con số (`h-[47px]`): đổi padding ô nhập là lệch lại
+                ngay, và lần đó sẽ không ai nhớ tới dòng này.
+              */}
+              <Button
+                onClick={p.onCrawl}
+                disabled={p.crawling || p.url.trim().length === 0}
+                className="h-auto self-stretch px-4"
+              >
                 {p.crawling ? "Đang crawl…" : "Crawl website"}
               </Button>
             </div>
-            
           </div>
 
           <div>
@@ -136,18 +170,42 @@ export function Step1SourceView(p: Step1ViewProps) {
         </div>
 
         {p.crawling && (
-          <div className="mt-6 rounded-xl border border-border p-4">
-            <div className="flex items-center justify-between">
+          // `role="status"` bọc CẢ khối: người không nhìn màn hình cần biết cả việc
+          // đang chạy, thời gian đã trôi, và dòng trấn an — chứ không riêng tiêu đề.
+          <div
+            role="status"
+            className="animate-panel-fade mt-6 rounded-xl border border-border bg-gray-25 p-4"
+          >
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
               <span className="text-sm font-semibold text-gray-700">Đang crawl website…</span>
-              <span className="font-mono text-[13px] text-muted-foreground">
+              {/* `tabular-nums` để số giây không làm cả dòng nhảy mỗi giây khi bề
+                  rộng chữ số thay đổi. */}
+              <span className="ml-auto font-mono text-[13px] tabular-nums text-muted-foreground">
                 {p.elapsedSeconds} giây
               </span>
             </div>
-            {/* Indeterminate có ý thức: backend không stream tiến độ nên không có
-                phần trăm thật để hiển thị. Thà đập nhịp còn hơn bịa con số. */}
-            <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-muted">
-              <div className="h-full w-1/3 animate-pulse rounded-full bg-primary" />
+
+            {/*
+              Thanh KHÔNG XÁC ĐỊNH, có chủ đích: backend không stream tiến độ nên
+              không có phần trăm thật nào để hiển thị.
+
+              Bản trước là `w-1/3` + `animate-pulse` — nó đứng yên ở một phần ba và
+              chỉ mờ dần, nên đọc ra thành "tiến độ 33% và đang kẹt": vừa bịa một con
+              số, vừa trông như treo sau nửa phút. Đoạn chạy ngang thì không nói gì về
+              tiến độ cả, chỉ nói "vẫn đang làm".
+
+              KHÔNG có `aria-valuenow`: theo ARIA, một progressbar thiếu thuộc tính đó
+              nghĩa là "không biết tiến độ" — đúng sự thật ở đây.
+            */}
+            <div
+              role="progressbar"
+              aria-label="Đang crawl website"
+              className="mt-3 h-1.5 overflow-hidden rounded-full bg-muted"
+            >
+              <div className="animate-indeterminate h-full w-[30%] rounded-full bg-primary" />
             </div>
+
+            <p className="mt-2.5 text-[13px] text-muted-foreground">{crawlHint(p.elapsedSeconds)}</p>
           </div>
         )}
 
