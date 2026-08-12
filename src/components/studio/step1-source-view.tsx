@@ -1,14 +1,14 @@
 "use client";
 
-import { useRef } from "react";
 import { ArrowRight, Check, FileUp, Minus, TriangleAlert } from "lucide-react";
+import { useRef } from "react";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import { DegradedBadge } from "~/components/ui/degraded-badge";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
 import { Panel, PanelBody, PanelFoot, PanelSub, PanelTitle } from "~/components/ui/panel";
-import { FIXTURES, type FixtureKey } from "~/lib/fixtures";
+import { type FixtureKey } from "~/lib/fixtures";
 
 export interface Step1Result {
   pages: Array<{ url: string; title: string | null; status: string }>;
@@ -90,35 +90,7 @@ export function Step1SourceView(p: Step1ViewProps) {
                 {p.crawling ? "Đang crawl…" : "Crawl website"}
               </Button>
             </div>
-            <p className="mt-[7px] text-[13px] text-gray-500">
-              Crawl có thể mất tới 3 phút. Mất mạng hoặc backend lỗi sẽ tự chuyển sang kịch bản mẫu.
-            </p>
-
-            {/*
-              Chip kịch bản mẫu — đường DUY NHẤT trong giao diện gọi tới
-              `onPickExample`, tức đường duy nhất crawl với `mode: "fixture"`.
-              Không có nó thì prop này mồ côi và `FIXTURES` thành import chết
-              (đúng lỗi làm `next build` fail).
-
-              Tên nút phải chứa tên brand (`FIXTURES[key].brand.name`), vì đó là
-              thứ người dùng nhận ra — và cũng là cách test định vị nút
-              (`getByRole("button", { name: /Sen Spa/ })`).
-            */}
-            <div className="mt-3 flex flex-wrap items-center gap-2">
-              <span className="text-[13px] text-gray-500">Hoặc thử kịch bản mẫu:</span>
-              {(Object.keys(FIXTURES) as FixtureKey[]).map((key) => (
-                <button
-                  key={key}
-                  type="button"
-                  disabled={p.crawling}
-                  onClick={() => p.onPickExample(key)}
-                  className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-fci-100 bg-fci-50 px-3 py-1.5 text-xs font-semibold text-fci-700 transition-colors outline-none hover:bg-fci-100 focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  <span aria-hidden>{FIXTURES[key].brand.logo}</span>
-                  {FIXTURES[key].brand.name}
-                </button>
-              ))}
-            </div>
+            
           </div>
 
           <div>
