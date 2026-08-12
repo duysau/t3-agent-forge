@@ -29,21 +29,24 @@ interface QueryState<T> {
   error: { message: string } | null;
 }
 
-const { buildMutation, evaluateMutation, evalRunQuery, artifactsQuery } = vi.hoisted(() => ({
-  buildMutation: { mutateAsync: vi.fn<(input: BuildInput) => Promise<BuildOutput>>() },
-  evaluateMutation: { mutateAsync: vi.fn<(input: EvalInput) => Promise<EvalOutput>>() },
-  // Hai query mà Bước 3 đọc TRƯỚC khi quyết định có dựng hay không.
-  evalRunQuery: {
-    data: null,
-    isPending: false,
-    error: null,
-  } as QueryState<StoredRun | null>,
-  artifactsQuery: {
-    data: null,
-    isPending: false,
-    error: null,
-  } as QueryState<BuildOutput | null>,
-}));
+const { buildMutation, evaluateMutation, evalRunQuery, artifactsQuery, notifyOk } = vi.hoisted(
+  () => ({
+    buildMutation: { mutateAsync: vi.fn<(input: BuildInput) => Promise<BuildOutput>>() },
+    evaluateMutation: { mutateAsync: vi.fn<(input: EvalInput) => Promise<EvalOutput>>() },
+    // Hai query mà Bước 3 đọc TRƯỚC khi quyết định có dựng hay không.
+    evalRunQuery: {
+      data: null,
+      isPending: false,
+      error: null,
+    } as QueryState<StoredRun | null>,
+    artifactsQuery: {
+      data: null,
+      isPending: false,
+      error: null,
+    } as QueryState<BuildOutput | null>,
+    notifyOk: vi.fn<(message: string) => void>(),
+  }),
+);
 
 vi.mock("~/trpc/react", () => ({
   api: {
@@ -54,6 +57,10 @@ vi.mock("~/trpc/react", () => ({
       artifacts: { useQuery: (_input: { slug: string }) => artifactsQuery },
     },
   },
+}));
+
+vi.mock("~/lib/notify", () => ({
+  notifyOk,
 }));
 
 // Captures the container's latest `onRetry` callback so a test can invoke it
@@ -118,6 +125,7 @@ describe("Step3Build", () => {
     artifactsQuery.data = null;
     artifactsQuery.isPending = false;
     artifactsQuery.error = null;
+    notifyOk.mockReset();
   });
 
   it("chạy build đúng một lần dù Strict Mode gọi effect hai lần", async () => {
@@ -364,5 +372,18 @@ describe("Step3Build", () => {
 
     expect(await screen.findByText(/Không đọc được bảng điểm đã lưu/)).toBeInTheDocument();
     expect(buildMutation.mutateAsync).not.toHaveBeenCalled();
+  });
+
+  it("eval chạy xong thì báo toast kèm số bài đạt", async () => {
+    buildMutation.mutateAsync.mockResolvedValue(BUILT);
+    evaluateMutation.mutateAsync.mockResolvedValue(EVALUATED);
+
+    renderStep3Build();
+
+    await waitFor(() => expect(evaluateMutation.mutateAsync).toHaveBeenCalledTimes(1));
+
+    expect(notifyOk).toHaveBeenCalledWith(
+      `Kiểm định xong · ${EVALUATED.passed}/${EVALUATED.total} bài đạt`,
+    );
   });
 });

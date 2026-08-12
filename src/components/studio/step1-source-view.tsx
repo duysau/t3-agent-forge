@@ -4,17 +4,10 @@ import { useRef } from "react";
 import { ArrowRight, Check, FileUp, Minus } from "lucide-react";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "~/components/ui/card";
 import { DegradedBadge } from "~/components/ui/degraded-badge";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
+import { Panel, PanelBody, PanelFoot, PanelSub, PanelTitle } from "~/components/ui/panel";
 import { FIXTURES, type FixtureKey } from "~/lib/fixtures";
 
 export interface Step1Result {
@@ -41,24 +34,42 @@ export interface Step1ViewProps {
   onContinue: () => void;
 }
 
+const FIELD_LABEL = "mb-[7px] block text-sm font-semibold text-gray-700";
+
 export function Step1SourceView(p: Step1ViewProps) {
   const fileRef = useRef<HTMLInputElement>(null);
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Gắn nguồn dữ liệu</CardTitle>
-        <CardDescription>
+    <Panel>
+      <PanelBody>
+        <PanelTitle>Gắn nguồn dữ liệu</PanelTitle>
+        <PanelSub>
           Dán URL website doanh nghiệp. AgentForge crawl các trang chính và bóc text thành knowledge
           base. Có thể thêm PDF bảng giá hoặc catalogue.
-        </CardDescription>
-      </CardHeader>
+        </PanelSub>
 
-      <CardContent>
-        <div className="grid gap-6 md:grid-cols-2">
+        <div className="grid gap-6 min-[900px]:grid-cols-2">
           <div>
-            <Label htmlFor="url">Website doanh nghiệp</Label>
-            <div className="mt-1.5 flex gap-2">
+            <Label htmlFor="url" className={FIELD_LABEL}>
+              Website doanh nghiệp
+            </Label>
+            <div className="flex gap-2">
+              {/*
+                Ba class dưới đây tồn tại chỉ để thắng phần base của `Input` (shadcn),
+                vì `cn()` là twMerge — nó chỉ gỡ xung đột TRONG CÙNG nhóm utility:
+                - `h-auto` gỡ `h-9` (36px) của base. Không thể dựa vào `py-3` để cao lên
+                  được: `h-*` và `py-*` khác nhóm nên base giữ nguyên 36px và padding bị
+                  ép bên trong. Chọn `h-auto` thay vì ghim `h-[47px]` để chiều cao vẫn do
+                  padding + font-size quyết định, đúng cơ chế của `.input` prototype
+                  (`padding:12px 14px; font-size:15px` — khớp `px-3.5 py-3 text-[15px]`).
+                - `md:text-[15px]` gỡ `md:text-sm` của base. Chỉ `text-[15px]` là không đủ:
+                  khác modifier nên twMerge giữ cả hai, và `md:text-sm` nằm trong media
+                  query nên thắng từ 768px lên — tức cỡ chữ 15px chết trên mọi màn desktop.
+                - `focus-visible:` (không phải `focus:`) để gỡ đúng
+                  `focus-visible:border-ring/ring-3/ring-ring/50` của base, nếu không viền
+                  focus của prototype (`--primary` + `0 0 0 4px var(--fci-50)`) không bao
+                  giờ hiện. `focus:outline-none` cũ đã bỏ: base có `outline-none` vô điều kiện.
+              */}
               <Input
                 id="url"
                 type="url"
@@ -66,26 +77,27 @@ export function Step1SourceView(p: Step1ViewProps) {
                 onChange={(e) => p.onUrlChange(e.target.value)}
                 placeholder="https://senspa.vn"
                 disabled={p.crawling}
+                className="h-auto w-full rounded-lg border border-gray-300 bg-white px-3.5 py-3 text-[15px] transition-[border-color,box-shadow] focus-visible:border-primary focus-visible:ring-4 focus-visible:ring-fci-50 md:text-[15px]"
               />
               <Button onClick={p.onCrawl} disabled={p.crawling || p.url.trim().length === 0}>
                 {p.crawling ? "Đang crawl…" : "Crawl website"}
               </Button>
             </div>
-            <p className="mt-1.5 text-[13px] text-muted-foreground">
+            <p className="mt-[7px] text-[13px] text-gray-500">
               Crawl có thể mất tới 3 phút. Mất mạng hoặc backend lỗi sẽ tự chuyển sang kịch bản mẫu.
             </p>
           </div>
 
           <div>
-            <Label>Tài liệu bổ sung (tuỳ chọn)</Label>
+            <Label className={FIELD_LABEL}>Tài liệu bổ sung (tuỳ chọn)</Label>
             <button
               type="button"
               onClick={() => fileRef.current?.click()}
               disabled={p.result === null || p.uploading}
-              className="mt-1.5 w-full rounded-xl border-2 border-dashed border-input px-4 py-6 text-center transition-colors hover:border-fci-400 disabled:cursor-not-allowed disabled:opacity-60"
+              className="w-full cursor-pointer rounded-xl border-2 border-dashed border-gray-300 bg-gray-25 p-[26px] text-center text-gray-500 transition-all hover:border-fci-300 hover:bg-fci-50 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              <FileUp className="mx-auto size-6 text-gray-400" />
-              <span className="mt-2 block font-semibold text-gray-700">
+              <FileUp className="mx-auto mb-2.5 size-[42px] text-fci-400" />
+              <span className="block font-semibold text-gray-700">
                 {p.uploading ? "Đang nạp PDF…" : "Chọn PDF bảng giá / catalogue"}
               </span>
               <span className="mt-1 block text-[13px] text-muted-foreground">
@@ -105,7 +117,7 @@ export function Step1SourceView(p: Step1ViewProps) {
               }}
             />
             {p.pdf && (
-              <p className="mt-2 flex items-center gap-1.5 text-[13px] text-success-strong">
+              <p className="mt-2.5 inline-flex items-center gap-2 rounded-full bg-fci-50 px-3 py-1.5 text-[13px] font-semibold text-fci-700">
                 <Check className="size-3.5" />
                 {p.pdf.fileName} — {p.pdf.chunks} chunk từ {p.pdf.pages} trang
               </p>
@@ -118,7 +130,7 @@ export function Step1SourceView(p: Step1ViewProps) {
           </div>
         </div>
 
-        <div className="mt-7 rounded-xl bg-muted p-4">
+        <div className="mt-[22px] border-t border-dashed border-border pt-[22px]">
           <span className="block text-sm font-semibold text-gray-700">
             Hoặc dùng kịch bản mẫu (chạy offline, không phụ thuộc mạng)
           </span>
@@ -129,12 +141,12 @@ export function Step1SourceView(p: Step1ViewProps) {
                 type="button"
                 disabled={p.crawling}
                 onClick={() => p.onPickExample(f.key)}
-                className="flex items-center gap-2.5 rounded-lg border border-input bg-card px-3.5 py-2.5 text-left shadow-xs transition-colors hover:border-fci-400 disabled:opacity-50"
+                className="flex min-w-[210px] items-center gap-2.5 rounded-lg border border-gray-300 bg-white px-4 py-3 text-left transition-all hover:border-primary hover:shadow-sm disabled:opacity-50"
               >
-                <span className="text-xl">{f.brand.logo}</span>
+                <span className="text-[22px]">{f.brand.logo}</span>
                 <span>
-                  <span className="block text-sm font-semibold text-gray-900">{f.brand.name}</span>
-                  <span className="block text-xs text-muted-foreground">
+                  <span className="block text-sm font-bold text-gray-900">{f.brand.name}</span>
+                  <span className="block text-xs text-gray-500">
                     {f.domain} · {f.brand.industry}
                   </span>
                 </span>
@@ -175,35 +187,49 @@ export function Step1SourceView(p: Step1ViewProps) {
             </div>
 
             {p.result.pages.length > 0 && (
-              <ul className="mt-4 space-y-1.5">
-                {p.result.pages.map((page) => (
-                  <li key={page.url} className="flex items-center gap-2 text-[13px]">
-                    {page.status === "ok" ? (
-                      <Check className="size-3.5 shrink-0 text-success" />
-                    ) : (
-                      <Minus className="size-3.5 shrink-0 text-gray-400" />
-                    )}
-                    <span className="font-medium text-gray-700">{page.title ?? page.url}</span>
-                    <span className="truncate font-mono text-xs text-gray-400">{page.url}</span>
-                  </li>
-                ))}
-              </ul>
+              <div className="mt-6 overflow-hidden rounded-xl border border-border">
+                <div className="flex items-center gap-2.5 border-b border-border bg-gray-25 px-[18px] py-3.5 text-sm font-semibold">
+                  Các trang đã crawl
+                </div>
+                <ul>
+                  {p.result.pages.map((page) => (
+                    <li key={page.url} className="flex items-center gap-3 px-[18px] py-2.5 text-sm">
+                      {page.status === "ok" ? (
+                        <Check className="size-3.5 shrink-0 text-success" />
+                      ) : (
+                        <Minus className="size-3.5 shrink-0 text-gray-400" />
+                      )}
+                      <span className="font-medium text-gray-700">{page.title ?? page.url}</span>
+                      <span className="ml-auto truncate font-mono text-[13px] text-gray-400">
+                        {page.url}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
             )}
 
             {p.result.kbFacts.length > 0 && (
-              <ul className="mt-4 grid gap-2 md:grid-cols-2">
-                {p.result.kbFacts.map((fact) => (
-                  <li key={fact} className="rounded-lg bg-accent px-3 py-2 text-[13px] text-fci-800">
-                    {fact}
-                  </li>
-                ))}
-              </ul>
+              <div className="mt-5 rounded-xl border border-fci-100 bg-fci-50 px-5 py-[18px]">
+                <h4 className="mb-3 flex items-center gap-2 text-sm font-bold text-fci-700">
+                  <Check className="size-4" />
+                  Facts trích xuất được
+                </h4>
+                <ul className="flex flex-col gap-2.25">
+                  {p.result.kbFacts.map((fact) => (
+                    <li key={fact} className="flex gap-2.5 text-sm text-gray-700">
+                      <Check className="mt-0.5 size-3.5 shrink-0 text-success" />
+                      {fact}
+                    </li>
+                  ))}
+                </ul>
+              </div>
             )}
           </div>
         )}
-      </CardContent>
+      </PanelBody>
 
-      <CardFooter className="justify-between border-t">
+      <PanelFoot>
         <span className="text-[13px] text-muted-foreground">
           {p.result ? "Nguồn đã sẵn sàng." : "Chọn một nguồn để tiếp tục."}
         </span>
@@ -211,7 +237,7 @@ export function Step1SourceView(p: Step1ViewProps) {
           Tiếp tục
           <ArrowRight className="size-4" />
         </Button>
-      </CardFooter>
-    </Card>
+      </PanelFoot>
+    </Panel>
   );
 }

@@ -38,4 +38,38 @@ describe("Stepper", () => {
     await userEvent.click(screen.getByRole("button", { name: /Demo chia sẻ/ }));
     expect(onSelect).not.toHaveBeenCalled();
   });
+
+  it("vòng số bước xong mang viền success, bước chưa tới mang viền trong suốt", () => {
+    const { container } = render(<Stepper current={2} onSelect={vi.fn()} canGoTo={() => true} />);
+    const circles = container.querySelectorAll("span[class*='rounded-full']");
+    // Step 1 is done (current is 2)
+    const doneCircle = circles[0]!;
+    expect(doneCircle.className).toContain("border-2");
+    expect(doneCircle.className).toContain("border-success");
+    // Step 3 is not yet reached
+    const unreachedCircle = circles[2]!;
+    expect(unreachedCircle.className).toContain("border-2");
+    expect(unreachedCircle.className).toContain("border-transparent");
+  });
+
+  it("nhãn bước không bị ẩn ở màn hẹp (không còn class hidden)", () => {
+    // The label wrapper used to carry `hidden md:block`, which sets
+    // display:none between 640-767px in a real browser. jsdom applies no
+    // stylesheet so a rendered-visibility or accessible-name assertion would
+    // pass identically whether the class is present or not — it cannot
+    // reproduce the defect. Asserting the class itself is absent is the
+    // actual mechanism that controls the bug, so it is what is checked here.
+    const { container } = render(<Stepper current={2} onSelect={vi.fn()} canGoTo={() => true} />);
+    const labelWrappers = container.querySelectorAll("nav > div > button > span");
+    expect(labelWrappers.length).toBeGreaterThan(0);
+    for (const wrapper of labelWrappers) {
+      expect(wrapper.className).not.toContain("hidden");
+    }
+  });
+
+  it("bước đã xong có tên hỗ trợ truy cập không trống", () => {
+    render(<Stepper current={2} onSelect={vi.fn()} canGoTo={() => true} />);
+    const doneButton = screen.getByRole("button", { name: /Gắn nguồn/ });
+    expect(doneButton).toHaveAccessibleName();
+  });
 });

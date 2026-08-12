@@ -1,16 +1,10 @@
 "use client";
 
-import { ArrowLeft, ArrowRight, Check } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, MessageSquare, Mic } from "lucide-react";
+import type { ComponentType } from "react";
 import { Button } from "~/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "~/components/ui/card";
 import { Label } from "~/components/ui/label";
+import { Panel, PanelBody, PanelFoot, PanelSub, PanelTitle } from "~/components/ui/panel";
 import {
   Select,
   SelectContent,
@@ -25,6 +19,8 @@ type Product = "chat" | "voice";
 
 const CARDS: Array<{
   product: Product;
+  icon: ComponentType<{ className?: string }>;
+  iconBoxClassName: string;
   kicker: string;
   title: string;
   desc: string;
@@ -32,6 +28,8 @@ const CARDS: Array<{
 }> = [
   {
     product: "chat",
+    icon: MessageSquare,
+    iconBoxClassName: "bg-gradient-to-br from-fci-400 to-fci-500",
     kicker: "Chatbot đa kênh",
     title: "FPT AI Chat",
     desc: "Chatbot trả lời trên website, Zalo, Facebook, app. Phù hợp CSKH, tư vấn dịch vụ, giải đáp FAQ.",
@@ -43,6 +41,8 @@ const CARDS: Array<{
   },
   {
     product: "voice",
+    icon: Mic,
+    iconBoxClassName: "bg-gradient-to-br from-success to-[#0a8f52]",
     kicker: "Voicebot tổng đài",
     title: "FPT AI Engage",
     desc: "Voicebot gọi ra và nghe máy tự động cho call center. Phù hợp đặt lịch, đặt bàn, nhắc lịch, khảo sát.",
@@ -72,19 +72,18 @@ export function Step2ProductView({
   saving: boolean;
 }) {
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Chọn sản phẩm FPT.AI</CardTitle>
-        <CardDescription>
+    <Panel>
+      <PanelBody>
+        <PanelTitle>Chọn sản phẩm FPT.AI</PanelTitle>
+        <PanelSub>
           Cùng một nguồn dữ liệu — chọn hình thái agent. Hệ thống dựng demo theo đúng sản phẩm được
           chọn.
-        </CardDescription>
-      </CardHeader>
+        </PanelSub>
 
-      <CardContent>
-        <div className="grid gap-5 md:grid-cols-2">
+        <div className="grid gap-5 min-[900px]:grid-cols-2">
           {CARDS.map((c) => {
             const selected = product === c.product;
+            const Icon = c.icon;
             return (
               <button
                 key={c.product}
@@ -92,21 +91,35 @@ export function Step2ProductView({
                 onClick={() => onSelect(c.product)}
                 aria-pressed={selected}
                 className={cn(
-                  "rounded-2xl border-2 p-5 text-left transition-all",
-                  selected
-                    ? "border-primary bg-accent shadow-glow"
-                    : "border-border bg-card hover:border-fci-300",
+                  "relative cursor-pointer overflow-hidden rounded-2xl border-2 border-gray-200 bg-white p-[26px] text-left transition-all hover:-translate-y-0.5 hover:border-fci-300 hover:shadow-lg",
+                  selected && "border-primary shadow-glow",
                 )}
               >
-                <span className="text-[11px] font-semibold uppercase tracking-wide text-fci-600">
+                {selected && (
+                  <span
+                    aria-hidden
+                    className="absolute top-4 right-4 grid size-7 place-items-center rounded-full bg-primary text-[15px] font-extrabold text-primary-foreground"
+                  >
+                    ✓
+                  </span>
+                )}
+                <div
+                  className={cn(
+                    "mb-4 grid size-14 place-items-center rounded-xl",
+                    c.iconBoxClassName,
+                  )}
+                >
+                  <Icon className="size-[30px] text-white" />
+                </div>
+                <span className="text-xs font-bold tracking-[0.06em] uppercase text-gray-400">
                   {c.kicker}
                 </span>
-                <h3 className="mt-1 text-lg font-bold text-gray-900">{c.title}</h3>
-                <p className="mt-2 text-[15px] text-gray-600">{c.desc}</p>
+                <h3 className="mt-1 text-xl font-extrabold tracking-[-0.01em]">{c.title}</h3>
+                <p className="my-2.5 text-sm text-gray-600">{c.desc}</p>
                 <ul className="mt-3 space-y-1.5">
                   {c.bullets.map((b) => (
-                    <li key={b} className="flex gap-2 text-[13px] text-gray-700">
-                      <Check className="mt-0.5 size-3.5 shrink-0 text-success" />
+                    <li key={b} className="flex gap-2.5 text-[13.5px] text-gray-700">
+                      <Check className="mt-px size-[17px] shrink-0 text-success" />
                       {b}
                     </li>
                   ))}
@@ -133,9 +146,9 @@ export function Step2ProductView({
             </Select>
           </div>
         )}
-      </CardContent>
+      </PanelBody>
 
-      <CardFooter className="justify-between border-t">
+      <PanelFoot>
         <Button variant="outline" onClick={onBack}>
           <ArrowLeft className="size-4" />
           Quay lại
@@ -144,7 +157,7 @@ export function Step2ProductView({
           {saving ? "Đang lưu…" : "Dựng agent"}
           {!saving && <ArrowRight className="size-4" />}
         </Button>
-      </CardFooter>
-    </Card>
+      </PanelFoot>
+    </Panel>
   );
 }

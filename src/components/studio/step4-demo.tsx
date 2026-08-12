@@ -3,13 +3,14 @@
 import { useEffect, useRef, useState } from "react";
 import { ArrowLeft } from "lucide-react";
 import { Button } from "~/components/ui/button";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "~/components/ui/card";
+import { Panel, PanelBody, PanelFoot, PanelSub, PanelTitle } from "~/components/ui/panel";
 import { BrandBar } from "~/components/demo/brand-bar";
 import { ChatDemo } from "~/components/demo/chat-demo";
 import { NotBuiltNotice } from "~/components/demo/not-built-notice";
 import { isAgentBuilt } from "~/lib/agent-status";
 import { api } from "~/trpc/react";
 import { toQrDataUrl } from "~/lib/qr";
+import { notifyOk } from "~/lib/notify";
 import { ShareBox } from "./share-box";
 
 // navigator.clipboard chỉ tồn tại trong secure context — localhost thì có,
@@ -56,16 +57,14 @@ export function Step4Demo({ slug, onBack }: { slug: string; onBack: () => void }
   const d = demo.data;
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Trang demo chia sẻ được</CardTitle>
-        <CardDescription>
+    <Panel>
+      <PanelBody>
+        <PanelTitle>Trang demo chia sẻ được</PanelTitle>
+        <PanelSub>
           Trang demo mang branding của khách. Chat thử rồi gửi link cho người khác xem.
-        </CardDescription>
-      </CardHeader>
+        </PanelSub>
 
-      <CardContent>
-        <div className="overflow-hidden rounded-2xl border border-border">
+        <div className="overflow-hidden rounded-2xl border border-border bg-white shadow-lg">
           <BrandBar
             name={d.brandName}
             letter={d.brandLogoLetter}
@@ -124,21 +123,24 @@ export function Step4Demo({ slug, onBack }: { slug: string; onBack: () => void }
           onShowQr={() => {
             setQrError(null);
             void toQrDataUrl(shareUrl)
-              .then(setQrDataUrl)
+              .then((url) => {
+                setQrDataUrl(url);
+                notifyOk("Đã sinh mã QR — chiếu lên là quét được");
+              })
               .catch(() => {
                 setQrDataUrl(null);
                 setQrError(QR_FALLBACK_MESSAGE);
               });
           }}
         />
-      </CardContent>
+      </PanelBody>
 
-      <CardFooter className="border-t">
+      <PanelFoot>
         <Button variant="outline" onClick={onBack}>
           <ArrowLeft className="size-4" />
           Quay lại
         </Button>
-      </CardFooter>
-    </Card>
+      </PanelFoot>
+    </Panel>
   );
 }

@@ -2,14 +2,7 @@
 
 import { ArrowLeft, ArrowRight } from "lucide-react";
 import { Button } from "~/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "~/components/ui/card";
+import { Panel, PanelBody, PanelFoot, PanelSub, PanelTitle } from "~/components/ui/panel";
 import type { EvalResult, Persona } from "~/server/agentforge/schemas";
 import { ArtifactCards } from "./artifact-cards";
 import { BuildTerminal, type TerminalLine } from "./build-terminal";
@@ -38,15 +31,13 @@ export interface Step3ViewProps {
 
 export function Step3BuildView(p: Step3ViewProps) {
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Dựng &amp; kiểm định</CardTitle>
-        <CardDescription>
+    <Panel>
+      <PanelBody>
+        <PanelTitle>Dựng &amp; kiểm định</PanelTitle>
+        <PanelSub>
           LLM sinh persona, system prompt và guardrails, rồi tự sinh 20 test case và tự chấm điểm.
-        </CardDescription>
-      </CardHeader>
+        </PanelSub>
 
-      <CardContent>
         <BuildTerminal lines={p.lines} busy={p.busy} />
 
         {p.error && (
@@ -98,9 +89,9 @@ export function Step3BuildView(p: Step3ViewProps) {
             </Button>
           </div>
         )}
-      </CardContent>
+      </PanelBody>
 
-      <CardFooter className="justify-between border-t">
+      <PanelFoot>
         <Button variant="outline" onClick={p.onBack}>
           <ArrowLeft className="size-4" />
           Quay lại
@@ -109,7 +100,7 @@ export function Step3BuildView(p: Step3ViewProps) {
           Xem trang demo
           <ArrowRight className="size-4" />
         </Button>
-      </CardFooter>
-    </Card>
+      </PanelFoot>
+    </Panel>
   );
 }
