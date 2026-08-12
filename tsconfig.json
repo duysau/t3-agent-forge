@@ -38,5 +38,12 @@
     "**/*.js",
     ".next/types/**/*.ts"
   ],
-  "exclude": ["node_modules", "generated"]
+  // `public` bị loại vì `checkJs: true` cùng mẫu include cho file .js kéo cả asset
+  // tĩnh vào diện typecheck. `public/voice/mic-worklet.js` chạy trong
+  // AudioWorkletGlobalScope, mà `AudioWorkletProcessor`, `registerProcessor` và
+  // `sampleRate` KHÔNG nằm trong lib `dom` (chúng ở package `@types/audioworklet`
+  // riêng) — nên tsc báo lỗi cho một file hoàn toàn đúng. File đó không đi qua
+  // bundler và được kiểm bằng chính test nạp nó
+  // (`src/lib/voice/mic-worklet.test.ts`), nên nó không phải vùng không ai kiểm.
+  "exclude": ["node_modules", "generated", "public"]
 }

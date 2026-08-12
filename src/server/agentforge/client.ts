@@ -9,6 +9,7 @@ import {
   kbResponse,
   restoreResponse,
   sessionResponse,
+  voicePublishResponse,
   type BrandResult,
   type BuildResult,
   type CrawlResult,
@@ -17,6 +18,7 @@ import {
   type KbSnapshot,
   type RestoreBrand,
   type RestorePersona,
+  type VoicePublishResult,
 } from "./schemas";
 import { AgentForgeError, extractDetail, kindFromStatus } from "./errors";
 import { logBoundary } from "./log";
@@ -24,18 +26,36 @@ import type { ZodType, ZodTypeDef } from "zod";
 
 export const KB_SNAPSHOT_LIMIT = 1000;
 
-/** Lấy từ `endpoint.md`, cột "Timeout gợi ý". Đơn vị: ms. */
+/**
+ * Trần chờ cho từng endpoint, đơn vị ms. Đây là bảng đã CHỐT của dự án — được khoá
+ * bằng test trong `client.test.ts`, nên đổi một con số ở đây phải là quyết định có ý
+ * thức, không phải một lần sửa nhanh.
+ *
+ * Một mâu thuẫn còn lại, đã báo và được giữ nguyên: `CRAWL_MAX_PAGES` là 20, mà 20
+ * trang mất ~4 phút theo `frontend-handoff-1.md` §2.1 — dài hơn trần `crawl` 180s
+ * dưới đây. Với site nhiều trang, client sẽ abort trong khi backend vẫn crawl tới
+ * cùng (đúng hiện tượng "crawl thất bại" hôm 12/08). Muốn hết hẳn thì hoặc hạ
+ * `CRAWL_MAX_PAGES`, hoặc nâng lại trần này.
+ */
 export const TIMEOUTS = {
   health: 5_000,
-  sessions: 5_000,
+  sessions: 8_000,
   restore: 30_000,
   crawl: 180_000,
-  documents: 30_000,
+  documents: 25_000,
   brand: 10_000,
-  build: 60_000,
+  // 300s chứ không phải 60s như `endpoint.md` ghi: build `product: "voice"` làm
+  // thêm cả lượt đẩy KB lên agent voice nền tảng và mất ~2-3 phút
+  // (`frontend-handoff-1.md` §2.4). Một trần 60s ở đây abort lượt build TRONG KHI
+  // backend vẫn chạy tới cùng — người dùng thấy "quá thời gian chờ" rồi bấm lại,
+  // tiêu thêm 40+ lệnh gọi LLM cho một việc đã xong.
+  build: 300_000,
   eval: 300_000,
   chat: 30_000,
   kb: 10_000,
+  // Publish lại KB cho một session đã build: cùng những bước tốn thời gian nhất
+  // của build voice (facts → artifacts → ghi đè agent), chỉ bỏ phần sinh persona.
+  voicePublish: 180_000,
 } as const;
 
 export type Product = "chat" | "voice";
@@ -79,6 +99,7 @@ export interface AgentForgeClient {
   uploadDocument(input: { sessionId: string; file: File }): Promise<DocumentResult>;
   kbSnapshot(sessionId: string): Promise<KbSnapshot>;
   restore(input: RestoreInput): Promise<{ sessionId: string; chunksIngested: number }>;
+  publishVoice(input: { sessionId: string; siteName?: string }): Promise<VoicePublishResult>;
 }
 
 export function createClient(opts: {
@@ -240,12 +261,32 @@ export function createClient(opts: {
           chunks: input.chunks,
           kb_facts: input.kbFacts,
           brand: input.brand,
-          persona: input.persona,
+          // Key `persona` BỎ HẲN khi chưa có persona, KHÔNG gửi `null`: backend
+          // từ chối null với 422 `{"type":"dict_type","loc":["body","persona"]}`
+          // (`frontend-handoff-1.md` §2.2), dù field này là optional. Đây là
+          // đường hồi sinh session cho link demo đã chia sẻ — gửi null nghĩa là
+          // mọi lượt restore trước khi build đầu tiên xong đều chết.
+          ...(input.persona !== null ? { persona: input.persona } : {}),
           url: input.url,
         },
         timeoutMs: TIMEOUTS.restore,
         schema: restoreResponse,
         label: "restore",
+      }),
+
+    publishVoice: ({ sessionId, siteName }) =>
+      request({
+        path: "/api/voice/publish",
+        method: "POST",
+        json: {
+          session_id: sessionId,
+          // Cùng lý lẽ với `persona` ở trên: field optional thì không gửi key,
+          // đừng gửi `undefined`/`null` cho một backend Pydantic chưa kiểm.
+          ...(siteName !== undefined ? { site_name: siteName } : {}),
+        },
+        timeoutMs: TIMEOUTS.voicePublish,
+        schema: voicePublishResponse,
+        label: "voice-publish",
       }),
   };
 }

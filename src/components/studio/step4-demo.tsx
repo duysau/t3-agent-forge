@@ -6,6 +6,7 @@ import { Button } from "~/components/ui/button";
 import { Panel, PanelBody, PanelFoot, PanelSub, PanelTitle } from "~/components/ui/panel";
 import { BrandBar } from "~/components/demo/brand-bar";
 import { ChatDemo } from "~/components/demo/chat-demo";
+import { VoiceDemo } from "~/components/demo/voice-demo";
 import { NotBuiltNotice } from "~/components/demo/not-built-notice";
 import { isAgentBuilt } from "~/lib/agent-status";
 import { api } from "~/trpc/react";
@@ -74,11 +75,18 @@ export function Step4Demo({ slug, onBack }: { slug: string; onBack: () => void }
             mode={d.mode}
             degraded={d.degraded}
           />
-          {/* Cùng quy tắc với trang công khai: chưa dựng thì không có ô chat. */}
-          {isAgentBuilt(d.status) ? (
-            <ChatDemo slug={slug} suggested={d.kbFacts.slice(0, 3)} />
-          ) : (
+          {/*
+            Cùng quy tắc với trang công khai: chưa dựng thì không có ô chat. Và
+            hình thái demo phải khớp sản phẩm đã chọn ở Bước 2 — agent `voice` mở
+            một ô chat text là demo sai sản phẩm, người xem sẽ đánh giá FPT AI
+            Engage bằng một widget chat.
+          */}
+          {!isAgentBuilt(d.status) ? (
             <NotBuiltNotice />
+          ) : d.product === "voice" ? (
+            <VoiceDemo brandName={d.brandName} />
+          ) : (
+            <ChatDemo slug={slug} suggested={d.kbFacts.slice(0, 3)} />
           )}
         </div>
 

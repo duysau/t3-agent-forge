@@ -77,6 +77,39 @@ describe("buildResponse", () => {
     expect(r.guardrails).toHaveLength(2);
   });
 
+  /**
+   * Build với `product: "voice"` đẩy luôn KB lên agent voice nền tảng và trả
+   * thêm `voice_publish` (`frontend-handoff-1.md` §2.4). Không khai ở đây thì
+   * Zod loại nó ÂM THẦM — đúng cái đã xảy ra với `facts_source` suốt từ lúc
+   * backend thêm field đó (`docs/contract-assumptions.md` #19).
+   */
+  it("giữ voice_publish của build voice lại", () => {
+    const r = buildResponse.parse({
+      ...RAW_BUILD,
+      voice_publish: {
+        session_id: "sid",
+        site_name: "senspa.vn",
+        facts: 70,
+        knowledge_id: "kb_1",
+        agent_id: "ag_1",
+        message: "Đã đẩy KB lên agent voice",
+      },
+    });
+    expect(r.voicePublish?.facts).toBe(70);
+    expect(r.voicePublish?.siteName).toBe("senspa.vn");
+  });
+
+  it("build chat không có voice_publish thì thành null, không vỡ", () => {
+    const r = buildResponse.parse(RAW_BUILD);
+    expect(r.voicePublish).toBeNull();
+  });
+
+  it("voice_publish thiếu field vẫn parse được — tín hiệu chỉ để hiển thị", () => {
+    const r = buildResponse.parse({ ...RAW_BUILD, voice_publish: { facts: 61 } });
+    expect(r.voicePublish?.facts).toBe(61);
+    expect(r.voicePublish?.knowledgeId).toBeNull();
+  });
+
   it("avatar_letter không có thì lấy chữ cái đầu tiên của name, in hoa", () => {
     const payload = {
       ...RAW_BUILD,

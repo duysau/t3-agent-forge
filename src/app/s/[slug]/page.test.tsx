@@ -195,3 +195,30 @@ describe("DemoPage", () => {
     expect(screen.queryByText(/link có thể đã bị xoá/i)).not.toBeInTheDocument();
   });
 });
+
+/**
+ * Link chia sẻ phải mở đúng hình thái sản phẩm: người nhận link của một agent
+ * `voice` mà thấy ô chat text thì đang đánh giá sai sản phẩm.
+ *
+ * Lưu ý về hạ tầng, không phải về code này: gateway voice phải chạm được từ máy
+ * mở link. Trỏ `NEXT_PUBLIC_VOICE_GATEWAY_URL` vào `localhost` thì máy khác quét
+ * QR sẽ không gọi được — cần tunnel cho gateway.
+ */
+describe("DemoPage với sản phẩm voice", () => {
+  it("agent voice thì mở màn gọi thoại thay cho ô chat", async () => {
+    demoBySlug.mockResolvedValue({ ...PAYLOAD, product: "voice", voiceId: "std_kimngan" });
+
+    render(await DemoPage({ params: Promise.resolve({ slug: "demo-agent" }) }));
+
+    expect(screen.getByRole("button", { name: /Gọi thử/ })).toBeInTheDocument();
+    expect(screen.queryByPlaceholderText(/Nhập câu hỏi/)).not.toBeInTheDocument();
+  });
+
+  it("agent voice chưa dựng thì vẫn là thông báo chưa dựng, không phải nút gọi", async () => {
+    demoBySlug.mockResolvedValue({ ...PAYLOAD, product: "voice", status: "draft" });
+
+    render(await DemoPage({ params: Promise.resolve({ slug: "demo-agent" }) }));
+
+    expect(screen.queryByRole("button", { name: /Gọi thử/ })).not.toBeInTheDocument();
+  });
+});

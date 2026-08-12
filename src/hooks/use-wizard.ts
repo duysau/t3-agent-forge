@@ -12,11 +12,17 @@ export const STEPS: ReadonlyArray<{ n: StepNumber; kicker: string; title: string
   { n: 4, kicker: "Bước 4", title: "Demo chia sẻ" },
 ];
 
+/**
+ * KHÔNG còn `voiceId` ở đây. Giọng của voicebot do agent voice trên nền tảng FPT
+ * quyết định (`voice`/`voiceSpeed` trong Agent Profile của gateway), frontend
+ * không có lời gọi nào để đổi — nên Bước 2 không còn dropdown giọng, và giữ một
+ * ô state cho một lựa chọn không tồn tại chỉ để lại một setter không ai gọi.
+ * Cột `voiceId` trong DB vẫn được `Step2Product` ghi bằng giá trị mặc định.
+ */
 export interface WizardState {
   step: StepNumber;
   slug: string | null;
   product: Product | null;
-  voiceId: string | null;
   evaluated: boolean;
   canGoTo(n: StepNumber): boolean;
   goTo(n: StepNumber): void;
@@ -24,7 +30,6 @@ export interface WizardState {
   back(): void;
   setSlug(slug: string): void;
   setProduct(product: Product): void;
-  setVoiceId(voiceId: string): void;
   setEvaluated(value: boolean): void;
   reset(): void;
 }
@@ -33,7 +38,6 @@ export function useWizard(opts: { initialSlug?: string | null } = {}): WizardSta
   const [step, setStep] = useState<StepNumber>(1);
   const [slug, setSlugState] = useState<string | null>(opts.initialSlug ?? null);
   const [product, setProductState] = useState<Product | null>(null);
-  const [voiceId, setVoiceIdState] = useState<string | null>(null);
   const [evaluated, setEvaluated] = useState(false);
 
   const canGoTo = useCallback(
@@ -62,17 +66,10 @@ export function useWizard(opts: { initialSlug?: string | null } = {}): WizardSta
     setStep((s) => (Math.max(s - 1, 1) as StepNumber));
   }, []);
 
-  const setProduct = useCallback((p: Product) => {
-    setProductState(p);
-    // Giọng chỉ có nghĩa với FPT AI Engage; đổi sang chat thì phải xoá.
-    if (p === "chat") setVoiceIdState(null);
-  }, []);
-
   const reset = useCallback(() => {
     setStep(1);
     setSlugState(null);
     setProductState(null);
-    setVoiceIdState(null);
     setEvaluated(false);
   }, []);
 
@@ -80,15 +77,13 @@ export function useWizard(opts: { initialSlug?: string | null } = {}): WizardSta
     step,
     slug,
     product,
-    voiceId,
     evaluated,
     canGoTo,
     goTo,
     next,
     back,
     setSlug: setSlugState,
-    setProduct,
-    setVoiceId: setVoiceIdState,
+    setProduct: setProductState,
     setEvaluated,
     reset,
   };

@@ -13,11 +13,13 @@ import { Step2Product } from "~/components/studio/step2-product";
 import { Step3Build } from "~/components/studio/step3-build";
 import { Step4Demo } from "~/components/studio/step4-demo";
 import { StudioHead } from "~/components/studio/studio-head";
+import { useScrollIntoViewOnChange } from "~/hooks/use-scroll-into-view-on-change";
 import { useWizard } from "~/hooks/use-wizard";
 
 export default function HomePage() {
   const w = useWizard();
   const step1 = useRef<Step1Handle | null>(null);
+  const stepAnchor = useScrollIntoViewOnChange<HTMLDivElement>(w.step);
 
   return (
     <>
@@ -52,7 +54,19 @@ export default function HomePage() {
       >
         <StudioHead onReset={w.reset} canReset={w.slug !== null} />
 
-        <div className="mb-6">
+        {/*
+          Mỏ neo cuộn khi đổi bước. Mỗi panel bước là một khối dài (danh sách trang
+          đã crawl, 20 bài kiểm định…), nên lúc bấm "Tiếp tục" người dùng đang ở tận
+          cuối trang; bước mới render Ở TRÊN chỗ đó và trình duyệt giữ nguyên vị trí
+          cuộn, nên họ nhìn vào vùng trống hoặc chân trang và tưởng cú bấm không có
+          tác dụng.
+
+          Neo vào stepper chứ không phải `#studio`: cuộn tới đây thì thấy ngay "đang ở
+          bước mấy" rồi mới tới panel — cuộn lên đầu section thì tiêu đề studio chiếm
+          chỗ mà không nói gì mới. `scroll-mt-24` bù cho header `sticky` cao 68px,
+          cùng lý do như `scroll-mt-24` của section.
+        */}
+        <div ref={stepAnchor} className="mb-6 scroll-mt-24">
           <Stepper current={w.step} onSelect={w.goTo} canGoTo={w.canGoTo} />
         </div>
 
@@ -70,9 +84,7 @@ export default function HomePage() {
           <Step2Product
             slug={w.slug}
             product={w.product}
-            voiceId={w.voiceId}
             onSelectProduct={w.setProduct}
-            onVoiceChange={w.setVoiceId}
             onBack={() => w.goTo(1)}
             onSaved={() => w.goTo(3)}
           />

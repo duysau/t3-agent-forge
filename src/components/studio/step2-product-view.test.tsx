@@ -6,8 +6,6 @@ import { Step2ProductView } from "./step2-product-view";
 const base = {
   product: null,
   onSelect: vi.fn(),
-  voiceId: null,
-  onVoiceChange: vi.fn(),
   onBack: vi.fn(),
   onContinue: vi.fn(),
   saving: false,
@@ -25,24 +23,24 @@ describe("Step2ProductView", () => {
     expect(screen.getByRole("button", { name: /Dựng agent/ })).toBeDisabled();
   });
 
-  it("chọn chat thì mở nút và KHÔNG hiện dropdown giọng", () => {
+  it("chọn chat thì mở nút Dựng agent", () => {
     render(<Step2ProductView {...base} product="chat" />);
     expect(screen.getByRole("button", { name: /Dựng agent/ })).toBeEnabled();
+  });
+
+  /**
+   * Dropdown giọng đã bị GỠ, có chủ đích.
+   *
+   * Giọng nằm trong Agent Profile của gateway (`voice`/`voiceSpeed` trong
+   * `agents.local.yaml`) và do backend đặt lúc publish — frontend không có lời gọi
+   * nào để đổi nó. Giữ một dropdown không điều khiển được gì là UI nói dối: người
+   * demo chọn "Nam", nghe ra giọng nữ, và đi tìm lỗi ở chỗ không có lỗi.
+   * Cột `voiceId` trong DB vẫn được ghi (mặc định) để không phải migration.
+   */
+  it("chọn voice thì KHÔNG có dropdown giọng, và nói rõ giọng do nền tảng quyết định", () => {
+    render(<Step2ProductView {...base} product="voice" />);
     expect(screen.queryByLabelText(/Giọng đọc/)).not.toBeInTheDocument();
-  });
-
-  it("chọn voice thì hiện trigger giọng, và giọng đang chọn hiện trên trigger", () => {
-    render(<Step2ProductView {...base} product="voice" voiceId="std_kimngan" />);
-    const trigger = screen.getByLabelText(/Giọng đọc/);
-    expect(trigger).toBeInTheDocument();
-    expect(trigger).toHaveTextContent("Nữ, miền Nam");
-  });
-
-  it("mở dropdown thì thấy đúng hai giọng đã chốt với backend", async () => {
-    render(<Step2ProductView {...base} product="voice" voiceId="std_kimngan" />);
-    await userEvent.click(screen.getByLabelText(/Giọng đọc/));
-    const options = await screen.findAllByRole("option");
-    expect(options.map((o) => o.textContent)).toEqual(["Nữ, miền Nam", "Nam"]);
+    expect(screen.getByText(/giọng.*(nền tảng|cấu hình)/i)).toBeInTheDocument();
   });
 
   it("bấm thẻ sản phẩm thì gọi onSelect", async () => {
@@ -50,16 +48,6 @@ describe("Step2ProductView", () => {
     render(<Step2ProductView {...base} onSelect={onSelect} />);
     await userEvent.click(screen.getByText("FPT AI Engage"));
     expect(onSelect).toHaveBeenCalledWith("voice");
-  });
-
-  it("chọn giọng khác thì gọi onVoiceChange với id giọng", async () => {
-    const onVoiceChange = vi.fn();
-    render(
-      <Step2ProductView {...base} product="voice" voiceId="std_kimngan" onVoiceChange={onVoiceChange} />,
-    );
-    await userEvent.click(screen.getByLabelText(/Giọng đọc/));
-    await userEvent.click(await screen.findByRole("option", { name: "Nam" }));
-    expect(onVoiceChange).toHaveBeenCalledWith("std_minhquang");
   });
 
   it("bấm Quay lại thì gọi onBack", async () => {

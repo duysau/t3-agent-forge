@@ -193,3 +193,31 @@ describe("Step4Demo", () => {
     );
   });
 });
+
+/**
+ * Bước 4 phải mở đúng hình thái agent mà người dùng chọn ở Bước 2: agent `voice`
+ * dựng một ô chat text là demo sai sản phẩm — người xem đánh giá FPT AI Engage
+ * bằng một widget chat.
+ */
+describe("Step4Demo với sản phẩm voice", () => {
+  beforeEach(() => {
+    demoQuery.data = { ...PAYLOAD, product: "voice", voiceId: "std_kimngan" };
+    demoQuery.isPending = false;
+    demoQuery.error = null;
+  });
+
+  it("agent voice thì mở màn gọi thoại, không mở ô chat", async () => {
+    renderStep4();
+
+    expect(await screen.findByRole("button", { name: /Gọi thử/ })).toBeInTheDocument();
+    expect(screen.queryByPlaceholderText(/Nhập câu hỏi/)).not.toBeInTheDocument();
+  });
+
+  it("agent chat thì vẫn mở ô chat như trước", async () => {
+    demoQuery.data = { ...PAYLOAD, product: "chat" };
+    renderStep4();
+
+    expect(await screen.findByPlaceholderText(/Nhập câu hỏi/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Gọi thử/ })).not.toBeInTheDocument();
+  });
+});

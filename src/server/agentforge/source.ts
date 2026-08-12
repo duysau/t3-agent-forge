@@ -6,6 +6,7 @@ import type {
   DocumentResult,
   EvalResult,
   KbSnapshot,
+  VoicePublishResult,
 } from "./schemas";
 
 export interface AgentForgeSource {
@@ -23,6 +24,7 @@ export interface AgentForgeSource {
   uploadDocument(input: { sessionId: string; file: File }): Promise<DocumentResult>;
   kbSnapshot(sessionId: string): Promise<KbSnapshot>;
   restore(input: RestoreInput): Promise<{ sessionId: string; chunksIngested: number }>;
+  publishVoice(input: { sessionId: string; siteName?: string }): Promise<VoicePublishResult>;
 }
 
 export function createLiveSource(client: AgentForgeClient): AgentForgeSource {
@@ -37,5 +39,6 @@ export function createLiveSource(client: AgentForgeClient): AgentForgeSource {
     uploadDocument: (i) => client.uploadDocument(i),
     kbSnapshot: (sid) => client.kbSnapshot(sid),
     restore: (i) => client.restore(i),
+    publishVoice: (i) => client.publishVoice(i),
   };
 }

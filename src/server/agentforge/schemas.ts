@@ -114,6 +114,51 @@ export function personaToWire(persona: Persona | null): RestorePersona | null {
   };
 }
 
+/**
+ * Kết quả đẩy KB của session lên agent voice nền tảng (facts → artifacts → ghi
+ * đè agent → xoá cache). Xuất hiện ở hai chỗ: kèm trong `/api/build` khi
+ * `product: "voice"`, và là toàn bộ thân của `/api/voice/publish`.
+ *
+ * MỌI field đều `nullish` theo đúng học thuyết của `facts_source`
+ * (`docs/contract-assumptions.md` #19): đây là tín hiệu CHỈ ĐỂ HIỂN THỊ, không
+ * nuôi cột DB nào. Một field thiếu không được phép làm cả lượt build 3 phút vỡ
+ * tại biên — mất một con số trên giao diện thì rẻ, mất cả lượt build thì đắt.
+ */
+const voicePublishFields = z
+  .object({
+    session_id: z.string().nullish(),
+    site_name: z.string().nullish(),
+    facts: z.number().int().nullish(),
+    knowledge_id: z.string().nullish(),
+    agent_id: z.string().nullish(),
+    message: z.string().nullish(),
+  })
+  .transform((r) => ({
+    sessionId: r.session_id ?? null,
+    siteName: r.site_name ?? null,
+    facts: r.facts ?? null,
+    knowledgeId: r.knowledge_id ?? null,
+    agentId: r.agent_id ?? null,
+    message: r.message ?? null,
+  }));
+
+/**
+ * Thân của `POST /api/voice/publish`.
+ *
+ * `/api/build` trả kết quả này BỌC trong `voice_publish`; endpoint riêng thì
+ * `frontend-handoff-1.md` §2.4 không ghi hình dạng, và backend Python không
+ * chạy lúc viết đoạn này nên chưa gọi thật được lần nào. Tháo bọc nếu có, còn
+ * không thì đọc phẳng — đoán sai một lần ở đây là nút publish chết trên sân
+ * khấu, mà chấp nhận cả hai hình dạng thì không mất gì.
+ */
+export const voicePublishResponse = z.preprocess((raw) => {
+  if (raw !== null && typeof raw === "object" && !Array.isArray(raw)) {
+    const nested = (raw as { voice_publish?: unknown }).voice_publish;
+    if (nested !== null && typeof nested === "object" && !Array.isArray(nested)) return nested;
+  }
+  return raw;
+}, voicePublishFields);
+
 export const buildResponse = z
   .object({
     brand: brandResponse,
@@ -121,6 +166,9 @@ export const buildResponse = z
     system_prompt: z.string(),
     guardrails: z.array(z.string()),
     industry: z.string().nullish(),
+    // Chỉ có ở build `product: "voice"`. `.nullish()` vì build `chat` không trả
+    // field này — và vì mọi thứ ở đây phải sống được với một backend cũ hơn.
+    voice_publish: voicePublishFields.nullish(),
   })
   .transform((r) => ({
     brand: r.brand,
@@ -128,6 +176,7 @@ export const buildResponse = z
     systemPrompt: r.system_prompt,
     guardrails: r.guardrails,
     industry: r.industry ?? null,
+    voicePublish: r.voice_publish ?? null,
   }));
 
 const breakdownEntry = z.object({ pass: z.number().int(), total: z.number().int() });
@@ -245,6 +294,7 @@ export const restoreResponse = z
   .object({ session_id: z.string(), chunks_ingested: z.number().int() })
   .transform((r) => ({ sessionId: r.session_id, chunksIngested: r.chunks_ingested }));
 
+export type VoicePublishResult = z.output<typeof voicePublishResponse>;
 export type CrawlResult = z.output<typeof crawlResponse>;
 export type BrandResult = z.output<typeof brandResponse>;
 export type BuildResult = z.output<typeof buildResponse>;

@@ -4,6 +4,7 @@ import { TRPCError } from "@trpc/server";
 import type { Metadata } from "next";
 import { BrandBar } from "~/components/demo/brand-bar";
 import { ChatDemo } from "~/components/demo/chat-demo";
+import { VoiceDemo } from "~/components/demo/voice-demo";
 import { NotBuiltNotice } from "~/components/demo/not-built-notice";
 import { EvalSummary } from "~/components/studio/eval-summary";
 import { isAgentBuilt } from "~/lib/agent-status";
@@ -120,10 +121,20 @@ export default async function DemoPage({ params }: { params: Promise<{ slug: str
           chat gắn vào agent có system prompt rỗng. Hiện trạng thái thật thay vì
           hứa một thứ chưa tồn tại.
         */}
-        {isAgentBuilt(d.status) ? (
-          <ChatDemo slug={slug} suggested={d.kbFacts.slice(0, 3)} />
-        ) : (
+        {/*
+          Hình thái demo theo đúng sản phẩm đã chọn ở Bước 2. Cuộc gọi thoại nối
+          THẲNG từ browser của người mở link tới gateway voice, nên nó chỉ chạy khi
+          gateway chạm được từ máy đó: `NEXT_PUBLIC_VOICE_GATEWAY_URL` trỏ vào
+          `localhost` thì người quét QR trên điện thoại sẽ không gọi được — cần một
+          tunnel cho gateway. Thiếu biến đó thì `VoiceDemo` nói "chưa cấu hình" chứ
+          không để lại một nút chết.
+        */}
+        {!isAgentBuilt(d.status) ? (
           <NotBuiltNotice />
+        ) : d.product === "voice" ? (
+          <VoiceDemo brandName={d.brandName} />
+        ) : (
+          <ChatDemo slug={slug} suggested={d.kbFacts.slice(0, 3)} />
         )}
       </div>
 

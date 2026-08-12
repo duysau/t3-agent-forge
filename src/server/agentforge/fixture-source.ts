@@ -54,6 +54,10 @@ export function createFixtureSource(
         systemPrompt: f.systemPrompt,
         guardrails: f.guardrails,
         industry: f.brand.industry,
+        // Kịch bản mẫu không chạm nền tảng voice, nên không có lượt publish nào
+        // để báo cáo — kể cả khi người dùng chọn product `voice`. Đường publish
+        // của chế độ này là `publishVoice()` bên dưới, bấm tay.
+        voicePublish: null,
       };
     },
 
@@ -90,6 +94,24 @@ export function createFixtureSource(
     async restore() {
       await sleep(delay);
       return { sessionId, chunksIngested: f.chunks.length };
+    },
+
+    /**
+     * Kịch bản mẫu chạy offline nên KHÔNG có gì được đẩy lên nền tảng thật —
+     * `agentId` để null đúng vì thế: không có agent voice nào bị ghi đè. Trả về
+     * một kết quả thành công thay vì throw, để bấm nút publish ở chế độ kịch
+     * bản mẫu không dựng một đường lỗi không tồn tại trên sân khấu.
+     */
+    async publishVoice({ siteName }) {
+      await sleep(delay);
+      return {
+        sessionId,
+        siteName: siteName ?? f.brand.name,
+        facts: f.kbFacts.length,
+        knowledgeId: `fixture-kb-${key}`,
+        agentId: null,
+        message: "Kịch bản mẫu: KB không được đẩy lên nền tảng voice",
+      };
     },
   };
 }

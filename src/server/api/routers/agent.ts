@@ -23,6 +23,21 @@ async function requireAgent(ctx: { db: Db }, slug: string) {
   return agent;
 }
 
+/**
+ * Host của URL nguồn, dùng làm nhãn khi chưa có tên thương hiệu.
+ *
+ * `new URL` ném với chuỗi không phải URL. Cột `sourceUrl` chỉ nhận URL đã qua
+ * `z.string().url()` ở router crawl, nhưng đây là dữ liệu đọc lại từ DB —
+ * không đáng để một nhãn hiển thị làm rớt cả lượt publish.
+ */
+function hostOf(sourceUrl: string): string {
+  try {
+    return new URL(sourceUrl).host;
+  } catch {
+    return sourceUrl;
+  }
+}
+
 export const agentRouter = createTRPCRouter({
   setProduct: publicProcedure
     .input(
@@ -75,7 +90,56 @@ export const agentRouter = createTRPCRouter({
       brandName: saved.brandName,
       brandLogoLetter: saved.brandLogoLetter,
       industry: saved.industry,
+      // Chỉ khác null với `product: "voice"`. KHÔNG lưu DB — cùng đánh đổi đã
+      // chọn cho `factsSource` ở Bước 1: đây là báo cáo của MỘT lượt chạy, và
+      // một cột mới cho nó nghĩa là migration cho một dòng chữ. Đổi lại, tải
+      // lại trang là mất; publish lại thì bấm nút ở trang demo.
+      voicePublish: built.voicePublish,
     };
+  }),
+
+  /**
+   * Đẩy KB của agent này lên agent voice nền tảng.
+   *
+   * Agent voice trên nền tảng FPT là MỘT agent dùng chung cho cả gateway: mỗi
+   * lượt publish ghi đè knowledge base của nó, toàn cục. Nghĩa là cuộc gọi thoại
+   * luôn trả lời theo KB được publish GẦN NHẤT — không nhất thiết của agent đang
+   * mở trên màn hình. Kiểm thật ngày 2026-08-12: agent tự giới thiệu là "nama
+   * sushi" trong khi `frontend-handoff-1.md` §5 nói KB đang là VPBank, vì một
+   * lượt publish khác đã chen vào giữa.
+   *
+   * Vì nguồn sự thật nằm ở nền tảng chứ không ở DB của mình, KHÔNG có cách nào
+   * biết được "KB hiện tại có phải của agent này" mà bỏ qua bước publish. Nên
+   * bước này để người dùng bấm ngay trước khi gọi, và luôn chạy thật.
+   *
+   * `/api/build` với `product: "voice"` cũng publish (xem `voicePublish` trong
+   * `buildResponse`) — endpoint này tồn tại cho lượt publish LẠI, khi agent đã
+   * build từ trước và không đáng tiêu thêm 40+ lệnh gọi LLM chỉ để giành lại
+   * agent voice.
+   */
+  publishVoice: publicProcedure.input(slugInput).mutation(async ({ ctx, input }) => {
+    const agent = await requireAgent(ctx, input.slug);
+
+    // Cùng lý lẽ với `build`: `product` đọc từ DB, không nhận từ client. Publish
+    // KB cho một agent người dùng đã chọn `chat` là ghi đè agent voice dùng
+    // chung bằng dữ liệu không ai định đưa lên đó.
+    if (agent.product !== "voice") {
+      throw new TRPCError({
+        code: "BAD_REQUEST",
+        message: "Agent này không phải sản phẩm voice — chọn FPT AI Engage ở Bước 2 trước",
+      });
+    }
+
+    const source = sourceForAgent(agent, ctx.source);
+
+    // `site_name` là tên data source hiện trên console FPT, tức thứ duy nhất
+    // phân biệt lượt publish này với lượt của người khác trên cùng một agent.
+    // Ưu tiên tên thương hiệu; agent chưa build thì chưa có tên nên rơi về host.
+    const siteName = agent.brandName ?? hostOf(agent.sourceUrl);
+
+    return withSessionRecovery({ db: ctx.db, source }, agent.id, (sid) =>
+      source.publishVoice({ sessionId: sid, siteName }),
+    );
   }),
 
   evaluate: publicProcedure.input(slugInput).mutation(async ({ ctx, input }) => {
