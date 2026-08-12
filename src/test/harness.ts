@@ -16,6 +16,7 @@ export const CRAWL_FIXTURE: CrawlResult = {
   sessionId: "sid",
   pages: [{ url: "https://senspa.vn", title: "Sen Spa", status: "ok" }],
   kbFacts: ["Massage body 60 phút: 350.000đ"],
+  factsSource: "llm",
   chunks: ["chunk A", "chunk B"],
   totalChunks: 2,
 };

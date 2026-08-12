@@ -37,6 +37,7 @@ export function Step1Source({
       setResult({
         pages: data.pages,
         kbFacts: data.kbFacts,
+        factsSource: data.factsSource,
         totalChunks: data.totalChunks,
         degraded: data.degraded,
         brandName: data.brand.name,

@@ -35,6 +35,7 @@ describe("Step1SourceView", () => {
           result: {
             pages: [{ url: "https://senspa.vn", title: "Sen Spa", status: "ok" }],
             kbFacts: ["Massage 60 phút: 350.000đ"],
+            factsSource: "llm",
             totalChunks: 12,
             degraded: false,
             brandName: "Sen Spa",
@@ -61,6 +62,7 @@ describe("Step1SourceView", () => {
               { url: "https://senspa.vn/bang-gia", title: "Bảng giá", status: "ok" },
             ],
             kbFacts: ["Fact A", "Fact B"],
+            factsSource: "llm",
             totalChunks: 12,
             degraded: false,
             brandName: "Sen Spa",
@@ -80,6 +82,7 @@ describe("Step1SourceView", () => {
           result: {
             pages: [],
             kbFacts: ["Fact"],
+            factsSource: "llm",
             totalChunks: 6,
             degraded: true,
             brandName: "Sen Spa",
@@ -94,7 +97,7 @@ describe("Step1SourceView", () => {
     render(
       <Step1SourceView
         {...props({
-          result: { pages: [], kbFacts: ["Fact"], totalChunks: 6, degraded: false, brandName: "X" },
+          result: { pages: [], kbFacts: ["Fact"], factsSource: "llm", totalChunks: 6, degraded: false, brandName: "X" },
         })}
       />,
     );
@@ -120,6 +123,7 @@ describe("Step1SourceView", () => {
           result: {
             pages: [],
             kbFacts: ["Fact còn đây"],
+            factsSource: "llm",
             totalChunks: 6,
             degraded: false,
             brandName: "X",
@@ -136,7 +140,7 @@ describe("Step1SourceView", () => {
     render(
       <Step1SourceView
         {...props({
-          result: { pages: [], kbFacts: [], totalChunks: 6, degraded: false, brandName: "X" },
+          result: { pages: [], kbFacts: [], factsSource: "llm", totalChunks: 6, degraded: false, brandName: "X" },
           pdf: { fileName: "bang-gia.pdf", chunks: 4, pages: 2 },
         })}
       />,
@@ -154,7 +158,7 @@ describe("Step1SourceView", () => {
     render(
       <Step1SourceView
         {...props({
-          result: { pages: [], kbFacts: [], totalChunks: 6, degraded: false, brandName: "X" },
+          result: { pages: [], kbFacts: [], factsSource: "llm", totalChunks: 6, degraded: false, brandName: "X" },
         })}
       />,
     );
@@ -175,6 +179,7 @@ describe("Step1SourceView", () => {
           result: {
             pages: [],
             kbFacts: ["Fact A", "Fact B", "Fact C"],
+            factsSource: "llm",
             totalChunks: 6,
             degraded: false,
             brandName: "X",
@@ -199,6 +204,7 @@ describe("Step1SourceView", () => {
               { url: "https://senspa.vn/loi", title: "Trang lỗi", status: "error" },
             ],
             kbFacts: [],
+            factsSource: "llm",
             totalChunks: 6,
             degraded: false,
             brandName: "X",
@@ -241,5 +247,36 @@ describe("Step1SourceView", () => {
     for (const want of ["h-auto", "py-3", "text-[15px]", "md:text-[15px]"]) {
       expect(classes).toContain(want);
     }
+  });
+  const RESULT_BASE = {
+    pages: [],
+    kbFacts: ['Fact A', 'Fact B'],
+    factsSource: "llm",
+    totalChunks: 4,
+    degraded: false,
+    brandName: 'X',
+  };
+
+  it('facts_source heuristic thì cảnh báo chất lượng facts kém', () => {
+    render(<Step1SourceView {...props({ result: { ...RESULT_BASE, factsSource: 'heuristic' } })} />);
+    const warn = screen.getByTestId('facts-heuristic-warning');
+    expect(warn).toBeInTheDocument();
+    expect(warn).toHaveTextContent(/dự phòng/);
+    expect(warn).toHaveTextContent(/Bước 3/);
+  });
+
+  it('facts_source llm thì KHÔNG cảnh báo gì', () => {
+    render(<Step1SourceView {...props({ result: { ...RESULT_BASE, factsSource: 'llm' } })} />);
+    expect(screen.queryByTestId('facts-heuristic-warning')).not.toBeInTheDocument();
+  });
+
+  it('backend không trả facts_source thì im lặng, không đoán là kém', () => {
+    render(<Step1SourceView {...props({ result: { ...RESULT_BASE, factsSource: null } })} />);
+    expect(screen.queryByTestId('facts-heuristic-warning')).not.toBeInTheDocument();
+  });
+
+  it('giá trị facts_source lạ cũng im lặng — tín hiệu tư vấn, không báo động sai', () => {
+    render(<Step1SourceView {...props({ result: { ...RESULT_BASE, factsSource: 'cached' } })} />);
+    expect(screen.queryByTestId('facts-heuristic-warning')).not.toBeInTheDocument();
   });
 });

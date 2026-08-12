@@ -122,6 +122,11 @@ export const sourceRouter = createTRPCRouter({
         sessionId: crawled.data.sessionId,
         pages: crawled.data.pages,
         kbFacts: crawled.data.kbFacts,
+        // Tín hiệu chất lượng facts, chỉ để hiển thị — KHÔNG lưu DB. Nghĩa là cảnh báo
+        // chỉ sống trong lượt crawl này: tải lại trang hay quay lại Bước 1 là mất. Đổi
+        // lại là không phải migrate schema cho một field tư vấn. Nếu sau này cần cảnh
+        // báo bền qua cả Bước 3 (nơi eval thật sự chịu ảnh hưởng) thì phải thêm cột.
+        factsSource: crawled.data.factsSource,
         totalChunks: crawled.data.totalChunks,
         degraded: saved.degraded,
         brand,

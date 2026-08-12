@@ -66,6 +66,7 @@ const CRAWL = {
     { url: "https://senspa.vn/bang-gia", title: "Bảng giá", status: "ok" },
   ],
   kbFacts: ["Massage 60 phút: 350.000đ"],
+  factsSource: "llm",
   chunks: ["chunk A", "chunk B", "chunk C"],
   totalChunks: 3,
 };
