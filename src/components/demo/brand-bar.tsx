@@ -1,8 +1,12 @@
+import { Zap } from "lucide-react";
 import { DegradedBadge, type SampleDataReason } from "~/components/ui/degraded-badge";
 
+// Chỉ còn phần CHỮ. Ký tự "⚡" tách ra thành icon SVG dựng ở JSX bên dưới: emoji
+// phụ thuộc font hệ thống (Windows/Android vẽ khác nhau, có máy vẽ thành ô vuông),
+// và screen reader đọc nó thành "tia sét" chen vào giữa câu.
 const PRODUCT_LABEL: Record<"chat" | "voice", string> = {
-  chat: "⚡ powered by FPT AI Chat",
-  voice: "⚡ powered by FPT AI Engage",
+  chat: "powered by FPT AI Chat",
+  voice: "powered by FPT AI Engage",
 };
 
 /**
@@ -71,6 +75,7 @@ export function BrandBar({
       {reason && <DegradedBadge reason={reason} />}
       {product && (
         <span className="ml-auto flex items-center gap-1.5 text-[11px] opacity-75">
+          <Zap aria-hidden className="size-3" />
           {PRODUCT_LABEL[product]}
         </span>
       )}

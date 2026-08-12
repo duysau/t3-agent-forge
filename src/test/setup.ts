@@ -24,3 +24,19 @@ if (!Element.prototype.hasPointerCapture) {
 if (!Element.prototype.scrollIntoView) {
   Element.prototype.scrollIntoView = () => undefined;
 }
+
+// jsdom cũng thiếu `matchMedia`; `next-themes` gọi nó để đọc `prefers-color-scheme`.
+// Trả `matches: false` = "không ưu tiên chế độ tối", nên test nào không tự đặt
+// theme sẽ chạy ở giao diện sáng — mặc định tất định, không phụ thuộc máy chạy test.
+if (!window.matchMedia) {
+  window.matchMedia = (query: string): MediaQueryList => ({
+    media: query,
+    matches: false,
+    onchange: null,
+    addListener: () => undefined,
+    removeListener: () => undefined,
+    addEventListener: () => undefined,
+    removeEventListener: () => undefined,
+    dispatchEvent: () => false,
+  });
+}

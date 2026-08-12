@@ -14,7 +14,7 @@ export function Stepper({
   canGoTo: (n: StepNumber) => boolean;
 }) {
   return (
-    <nav aria-label="Tiến trình dựng agent" className="flex items-center overflow-x-auto rounded-xl border border-border bg-white px-5 py-3.5 shadow-sm">
+    <nav aria-label="Tiến trình dựng agent" className="flex items-center overflow-x-auto rounded-xl border border-border bg-surface px-5 py-3.5 shadow-sm">
       {STEPS.map((s, i) => {
         const done = s.n < current;
         const active = s.n === current;
@@ -27,8 +27,11 @@ export function Stepper({
               aria-current={active ? "step" : undefined}
               onClick={() => onSelect(s.n)}
               className={cn(
-                "flex items-center gap-2.5 rounded-lg px-2 py-1.5 text-left transition-colors",
-                reachable ? "hover:bg-gray-100" : "cursor-not-allowed opacity-50",
+                // `min-h-11` + focus ring: đây là nút điều hướng chính giữa 4 bước,
+                // trước đó không có chỉ báo focus nào nên tab bằng bàn phím qua
+                // stepper là đi trong bóng tối.
+                "flex min-h-11 items-center gap-2.5 rounded-lg px-2 py-1.5 text-left transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/50",
+                reachable ? "cursor-pointer hover:bg-gray-100" : "cursor-not-allowed opacity-50",
               )}
             >
               <span
@@ -42,7 +45,7 @@ export function Stepper({
                 {done ? <Check className="size-4" strokeWidth={3} /> : s.n}
               </span>
               <span>
-                <span className="block text-[11px] font-semibold uppercase tracking-[0.06em] text-gray-400">
+                <span className="block text-[11px] font-semibold uppercase tracking-[0.06em] text-gray-500">
                   {s.kicker}
                 </span>
                 <span

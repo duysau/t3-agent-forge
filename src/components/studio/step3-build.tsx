@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "~/trpc/react";
 import { notifyOk } from "~/lib/notify";
 import type { EvalResult, Persona } from "~/server/agentforge/schemas";
+import type { StoredEvalResult } from "~/server/db/queries/eval";
 import { Step3BuildView } from "./step3-build-view";
 import type { TerminalLine } from "./build-terminal";
 
@@ -28,7 +29,12 @@ export function Step3Build({
   const [error, setError] = useState<string | null>(null);
   const [artifacts, setArtifacts] = useState<Step3Artifacts | null>(null);
   const [evalSummary, setEvalSummary] = useState<EvalResult["summary"] | null>(null);
-  const [evalResults, setEvalResults] = useState<EvalResult["results"]>([]);
+  const [evalResults, setEvalResults] = useState<StoredEvalResult[]>([]);
+  /**
+   * Id của lượt kiểm định đang hiện, và cũng là địa chỉ mà một lần sửa tay gửi tới.
+   * Chỉ có sau khi ĐỌC từ DB — kết quả trả thẳng từ `evaluate` không mang id nào.
+   */
+  const [evalRunId, setEvalRunId] = useState<string | null>(null);
   const [hydratedFromStored, setHydratedFromStored] = useState(false);
 
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -51,6 +57,7 @@ export function Step3Build({
 
   const build = api.agent.build.useMutation();
   const evaluate = api.agent.evaluate.useMutation();
+  const updateAnswer = api.agent.updateEvalAnswer.useMutation();
 
   // Đọc lại những gì đã lưu TRƯỚC khi quyết định có dựng hay không. Bước 3 được
   // render có điều kiện trong page.tsx, nên "Quay lại" từ Bước 4 rồi đi tiếp lại
@@ -71,6 +78,7 @@ export function Step3Build({
       onEvaluatedChange(false);
       setEvalSummary(null);
       setEvalResults([]);
+      setEvalRunId(null);
       // Từ giây này màn hình không còn là ảnh của dữ liệu đã lưu nữa. Dữ liệu đó
       // KHÔNG bị xoá — chỉ ngừng được hiển thị, đúng quy tắc mà `agent.evalRun` và
       // `demo.bySlug` áp dụng phía server.
@@ -93,7 +101,19 @@ export function Step3Build({
         const scored = await evaluate.mutateAsync({ slug });
         stopClock();
         setEvalSummary(scored);
-        setEvalResults(scored.results);
+
+        // `evaluate` trả về dữ liệu backend vừa sinh, chưa mang `ord` hay id của run —
+        // hai thứ chỉ sinh ra khi ghi xuống DB. Đọc lại bản đã lưu để danh sách hiện
+        // đúng những hàng mà một lần sửa tay có thể trỏ tới. Đọc hỏng thì vẫn hiện
+        // bảng điểm (dữ liệu đã lưu an toàn rồi), chỉ là không sửa được cho tới lần
+        // mở lại sau — mất một tính năng phụ, không mất cả lượt chấm vừa chờ vài phút.
+        const stored = await storedRun.refetch();
+        if (stored.data) {
+          setEvalResults(stored.data.results);
+          setEvalRunId(stored.data.id);
+        } else {
+          setEvalResults([]);
+        }
         setLines((l) => [
           ...l,
           { kind: "ok", text: `${scored.passed}/${scored.total} bài đạt · pass rate ${scored.passRate}%` },
@@ -115,7 +135,31 @@ export function Step3Build({
     } finally {
       running.current = false;
     }
-  }, [build, evaluate, onEvaluatedChange, slug, startClock, stopClock]);
+  }, [build, evaluate, onEvaluatedChange, slug, startClock, stopClock, storedRun]);
+
+  /**
+   * Lưu một câu trả lời đã sửa tay, rồi cập nhật đúng bài đó tại chỗ.
+   *
+   * KHÔNG `refetch` cả lượt sau khi lưu: `storedRun` là query mà `useEffect` hydrate
+   * đang theo dõi, và một lượt đọc lại ở đây sẽ ghi đè `lines` của terminal bằng
+   * dòng "hiện lại kết quả đã lưu" — nói sai rằng màn hình vừa được dựng lại từ DB.
+   * Server đã xác nhận ghi thành công, nên vá tại chỗ là đủ và trung thực.
+   *
+   * Ném lỗi ra ngoài thay vì nuốt: `EvalTestList` bắt nó để giữ ô nhập mở kèm lý do,
+   * nếu không người dùng sẽ tưởng đã lưu xong trong khi chưa.
+   */
+  const saveAnswer = useCallback(
+    async (ord: number, answer: string) => {
+      if (!evalRunId) throw new Error("Chưa có lượt kiểm định nào để sửa");
+
+      const saved = await updateAnswer.mutateAsync({ slug, runId: evalRunId, ord, answer });
+      setEvalResults((prev) =>
+        prev.map((r) => (r.ord === saved.ord ? { ...r, answer: saved.answer } : r)),
+      );
+      notifyOk("Đã lưu câu trả lời");
+    },
+    [evalRunId, slug, updateAnswer],
+  );
 
   useEffect(() => {
     if (started.current) return;
@@ -138,6 +182,7 @@ export function Step3Build({
       setArtifacts(artifacts);
       setEvalSummary(stored.summary);
       setEvalResults(stored.results);
+      setEvalRunId(stored.id);
       setLines([
         { kind: "ok", text: "Agent này đã dựng và chấm điểm xong — hiện lại kết quả đã lưu." },
         { kind: "ok", text: `Persona: ${artifacts.persona.name} · ${artifacts.persona.role}` },
@@ -174,6 +219,8 @@ export function Step3Build({
       artifacts={artifacts}
       evalSummary={evalSummary}
       evalResults={evalResults}
+      evalRunId={evalRunId}
+      onSaveAnswer={saveAnswer}
       hydratedFromStored={hydratedFromStored}
       onRetry={() => void run()}
       onBack={onBack}

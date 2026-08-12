@@ -42,7 +42,7 @@ const CARDS: Array<{
   {
     product: "voice",
     icon: Mic,
-    iconBoxClassName: "bg-gradient-to-br from-success to-[#0a8f52]",
+    iconBoxClassName: "bg-gradient-to-br from-success to-success-strong",
     kicker: "Voicebot tổng đài",
     title: "FPT AI Engage",
     desc: "Voicebot gọi ra và nghe máy tự động cho call center. Phù hợp đặt lịch, đặt bàn, nhắc lịch, khảo sát.",
@@ -91,16 +91,20 @@ export function Step2ProductView({
                 onClick={() => onSelect(c.product)}
                 aria-pressed={selected}
                 className={cn(
-                  "relative cursor-pointer overflow-hidden rounded-2xl border-2 border-gray-200 bg-white p-[26px] text-left transition-all hover:-translate-y-0.5 hover:border-fci-300 hover:shadow-lg",
+                  "relative cursor-pointer overflow-hidden rounded-2xl border-2 border-gray-200 bg-surface p-[26px] text-left transition-all outline-none hover:-translate-y-0.5 hover:border-fci-300 hover:shadow-lg focus-visible:ring-3 focus-visible:ring-ring/50",
                   selected && "border-primary shadow-glow",
                 )}
               >
                 {selected && (
                   <span
                     aria-hidden
-                    className="absolute top-4 right-4 grid size-7 place-items-center rounded-full bg-primary text-[15px] font-extrabold text-primary-foreground"
+                    className="absolute top-4 right-4 grid size-7 place-items-center rounded-full bg-primary text-primary-foreground"
                   >
-                    ✓
+                    {/* Icon SVG thay vì ký tự "✓": ký tự phụ thuộc font hệ thống
+                        (khác nhau giữa Windows/macOS/Android, có nơi thiếu glyph
+                        và ra ô vuông), còn `Check` của lucide vẽ đúng mọi nơi và
+                        khớp với chỗ khác trong app đã dùng chính icon này. */}
+                    <Check className="size-4" strokeWidth={3} />
                   </span>
                 )}
                 <div
@@ -111,14 +115,14 @@ export function Step2ProductView({
                 >
                   <Icon className="size-[30px] text-white" />
                 </div>
-                <span className="text-xs font-bold tracking-[0.06em] uppercase text-gray-400">
+                <span className="text-xs font-bold tracking-[0.06em] uppercase text-gray-500">
                   {c.kicker}
                 </span>
                 <h3 className="mt-1 text-xl font-extrabold tracking-[-0.01em]">{c.title}</h3>
                 <p className="my-2.5 text-sm text-gray-600">{c.desc}</p>
                 <ul className="mt-3 space-y-1.5">
                   {c.bullets.map((b) => (
-                    <li key={b} className="flex gap-2.5 text-[13.5px] text-gray-700">
+                    <li key={b} className="flex gap-2.5 text-sm text-gray-700">
                       <Check className="mt-px size-[17px] shrink-0 text-success" />
                       {b}
                     </li>

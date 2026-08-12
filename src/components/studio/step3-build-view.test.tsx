@@ -25,6 +25,8 @@ function props(over: Partial<Step3ViewProps> = {}): Step3ViewProps {
     artifacts: null,
     evalSummary: null,
     evalResults: [],
+    evalRunId: null,
+    onSaveAnswer: vi.fn(),
     hydratedFromStored: false,
     onRetry: vi.fn(),
     onBack: vi.fn(),
@@ -86,9 +88,38 @@ describe("Step3BuildView", () => {
       passed: true,
       reasoning: "r",
       category: "grounded" as const,
+      ord: i,
     }));
     render(<Step3BuildView {...props({ evalSummary: SUMMARY, evalResults: results })} />);
     expect(screen.getAllByTestId("eval-row")).toHaveLength(20);
+  });
+
+  /**
+   * Chưa đọc lại được lượt kiểm định từ DB thì chưa có địa chỉ để gửi một lần sửa
+   * tới. Mời người dùng sửa lúc đó là hứa một việc chắc chắn hỏng khi họ bấm Lưu.
+   */
+  it("chưa có runId thì bảng điểm ở chế độ chỉ đọc", async () => {
+    const results = [
+      { question: "Q1", answer: "a", score: 5, passed: true, reasoning: "r", category: "grounded" as const, ord: 0 },
+    ];
+    render(
+      <Step3BuildView {...props({ evalSummary: SUMMARY, evalResults: results, evalRunId: null })} />,
+    );
+    await userEvent.click(screen.getByRole("button", { name: /Q1/ }));
+    expect(screen.queryByRole("button", { name: /Sửa câu trả lời/ })).not.toBeInTheDocument();
+  });
+
+  it("có runId thì mở được ô sửa câu trả lời", async () => {
+    const results = [
+      { question: "Q1", answer: "a", score: 5, passed: true, reasoning: "r", category: "grounded" as const, ord: 0 },
+    ];
+    render(
+      <Step3BuildView
+        {...props({ evalSummary: SUMMARY, evalResults: results, evalRunId: "run-1" })}
+      />,
+    );
+    await userEvent.click(screen.getByRole("button", { name: /Q1/ }));
+    expect(screen.getByRole("button", { name: /Sửa câu trả lời/ })).toBeInTheDocument();
   });
 
   /**

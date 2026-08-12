@@ -1,17 +1,28 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "~/trpc/react";
 import type { FixtureKey } from "~/lib/fixtures";
 import { FIXTURES } from "~/lib/fixtures";
 import { Step1SourceView, type Step1Result } from "./step1-source-view";
 
+/**
+ * Cho phép nơi khác (CTA "Xem demo mẫu" ở hero) châm ngòi đúng lượt crawl fixture
+ * mà chip trong Bước 1 dùng — thay vì nhân bản `crawl.mutate({ mode: "fixture" })`
+ * ra chỗ thứ hai rồi để hai đường lệch nhau về sau.
+ */
+export interface Step1Handle {
+  pickExample: (key: FixtureKey) => void;
+}
+
 export function Step1Source({
   onReady,
   onContinue,
+  handleRef,
 }: {
   onReady: (slug: string) => void;
   onContinue: () => void;
+  handleRef?: { current: Step1Handle | null };
 }) {
   const [url, setUrl] = useState("");
   const [slug, setSlug] = useState<string | null>(null);
@@ -53,6 +64,32 @@ export function Step1Source({
 
   useEffect(() => () => void (timer.current && clearInterval(timer.current)), []);
 
+  // Một định nghĩa duy nhất, dùng cho cả chip trong Bước 1 và CTA ở hero.
+  const pickExample = useCallback(
+    (key: FixtureKey) => {
+      const fixtureUrl = FIXTURES[key].sourceUrl;
+      setUrl(fixtureUrl);
+      crawl.mutate({ url: fixtureUrl, mode: "fixture", fixtureKey: key });
+    },
+    [crawl],
+  );
+
+  /*
+    Gán vào ref của cha thay vì `useImperativeHandle`: `Step1Source` không phải
+    forwardRef và cha ở đây là một client component thường, nên một ref object
+    trần là đủ và đọc dễ hơn.
+
+    Dọn về `null` khi unmount — nếu không, cha giữ một handle trỏ tới component
+    đã chết, và cú gọi tiếp theo sẽ `setState` trên cây đã tháo.
+  */
+  useEffect(() => {
+    if (!handleRef) return;
+    handleRef.current = { pickExample };
+    return () => {
+      handleRef.current = null;
+    };
+  }, [handleRef, pickExample]);
+
   async function uploadPdf(file: File) {
     if (!slug) return;
     setPdfError(null);
@@ -83,11 +120,7 @@ export function Step1Source({
       url={url}
       onUrlChange={setUrl}
       onCrawl={() => crawl.mutate({ url, mode: "live" })}
-      onPickExample={(key: FixtureKey) => {
-        const fixtureUrl = FIXTURES[key].sourceUrl;
-        setUrl(fixtureUrl);
-        crawl.mutate({ url: fixtureUrl, mode: "fixture", fixtureKey: key });
-      }}
+      onPickExample={pickExample}
       crawling={crawl.isPending}
       elapsedSeconds={elapsed}
       result={result}

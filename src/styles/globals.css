@@ -1,7 +1,11 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
-@custom-variant dark (&:is(.dark *));
+/* `.dark &` bỏ sót chính phần tử mang class — mà `.dark` nằm trên <html>, nên
+   `dark:` trên <html>/<body> sẽ không bao giờ khớp. `&:where(.dark, .dark *)`
+   phủ cả phần tử đó lẫn con cháu, và `:where()` giữ specificity bằng 0 để thứ tự
+   utility của Tailwind vẫn quyết định thắng thua như thường. */
+@custom-variant dark (&:where(.dark, .dark *));
 
 :root {
   --radius: 0.5rem;
@@ -70,7 +74,12 @@
   --term-bar: #0f1530;
   --term-border: #1c2444;
   --term-fg: #c7d0f5;
-  --term-dim: #5b6797;
+  /* Sáng lên từ #5b6797: giá trị cũ chỉ đạt 3.45:1 trên --term-bg, dưới ngưỡng
+     WCAG AA 4.5:1 — và đây là màu của dòng log `info` cùng nhãn thời gian, tức
+     chữ thật cần đọc được, không phải trang trí. #8090c4 đạt 6.04:1 trên
+     --term-bg và 5.73:1 trên --term-bar (thanh tiêu đề), vẫn "dim" rõ rệt so
+     với --term-fg nên phân cấp thị giác của terminal không đổi. */
+  --term-dim: #8090c4;
   --term-green: #4ade80;
   --term-blue: #60a5fa;
   --term-yellow: #fbbf24;
@@ -79,6 +88,123 @@
   /* nhóm test "edge case" — tím, không có trong palette FCI */
   --cat-edge-bg: #f3e8ff;
   --cat-edge-fg: #7e22ce;
+
+  /* Nền "giấy" — chỗ nào sáng hơn `--background` để nổi lên khỏi nền. Ở light
+     đây đúng là trắng, nên các `bg-white` cũ đổi sang `bg-surface` mà không đổi
+     hình. Tồn tại để dark mode có một chỗ DUY NHẤT lật, thay vì `bg-white` rải
+     khắp 21 file — `white` là giá trị tuyệt đối, không lật được. */
+  --surface: #ffffff;
+
+  /* Toast + khối code: nền NGHỊCH ĐẢO với trang (tối trên nền sáng). Phải là
+     token riêng chứ không phải `gray-900`, vì thang gray đảo chiều ở dark mode —
+     dùng `gray-900` thì toast sẽ tự lật thành sáng và mất tương phản với chữ. */
+  --toast-bg: #101828;
+  --toast-fg: #ffffff;
+  --code-bg: #101828;
+  --code-fg: #e6eaf5;
+}
+
+/*
+  Dark mode. Nguyên tắc: KHÔNG viết `dark:` vào từng component, mà lật chính giá
+  trị của token ở đây. Component đã viết `text-gray-600`, `bg-card`, `bg-surface`
+  nên chúng tự đúng ở cả hai theme — nếu làm ngược lại thì mỗi màu phải sửa ở
+  ~21 file và lần thêm màu sau lại quên một chỗ.
+
+  Thang gray bị ĐẢO (25 ↔ 900): `text-gray-600` mang nghĩa "chữ phụ, nhạt hơn
+  chữ chính" chứ không mang nghĩa "mã màu #475467". Giữ nguyên thứ tự thang thì
+  mọi chữ phụ sẽ thành gần đen trên nền đen.
+*/
+.dark {
+  /* Thang FCI sáng lên: `--fci-500` (#203ADC) trên nền #0b1020 chỉ đạt 2.1:1,
+     không đọc được. Ở dark, các bậc "đậm" (600-900) phải là bậc SÁNG để chữ và
+     viền nổi lên — nên thang đảo chiều giống thang gray. */
+  --fci-50: #0d1330;
+  --fci-100: #16205a;
+  --fci-200: #1f2f85;
+  --fci-300: #2b41b5;
+  --fci-400: #4763e0;
+  --fci-500: #6b83ee;
+  --fci-600: #8ba0f4;
+  --fci-700: #aebef8;
+  --fci-800: #cfd8fb;
+  --fci-900: #e8edfe;
+
+  --gray-25: #10162b;
+  --gray-50: #131a33;
+  --gray-100: #1a2340;
+  --gray-200: #232e52;
+  --gray-300: #33406b;
+  --gray-400: #5b6994;
+  --gray-500: #8f9cc2;
+  --gray-600: #b3bdd8;
+  --gray-700: #ccd4e8;
+  --gray-800: #e2e8f5;
+  --gray-900: #f4f7fd;
+
+  --background: #0b1020;
+  --foreground: #f4f7fd;
+  --surface: #131a33;
+  --card: #131a33;
+  --card-foreground: #f4f7fd;
+  --popover: #131a33;
+  --popover-foreground: #f4f7fd;
+  /* Không dùng `--fci-500` gốc: nút primary ở dark cần nền đủ sáng để chữ trắng
+     trên nó vẫn tương phản, mà vẫn còn ra màu FCI. */
+  --primary: #4763e0;
+  --primary-foreground: #ffffff;
+  --secondary: #1a2340;
+  --secondary-foreground: #ccd4e8;
+  --muted: #1a2340;
+  --muted-foreground: #8f9cc2;
+  --accent: #16205a;
+  --accent-foreground: #cfd8fb;
+  --destructive: #f97066;
+  --destructive-foreground: #ffffff;
+  --border: #232e52;
+  --input: #33406b;
+  --ring: #6b83ee;
+
+  /* Nền trạng thái ở dark là bản tối bão hoà thấp, còn chữ `*-strong` phải SÁNG
+     lên — giữ nguyên `#067647` trên nền tối là chữ xanh đậm trên nền đen. */
+  --success: #47cd89;
+  --success-foreground: #05230f;
+  --success-muted: #0c2a1b;
+  --success-strong: #75e0a7;
+  --warning: #fdb022;
+  --warning-foreground: #2a1a05;
+  --warning-muted: #2e2008;
+  --warning-strong: #fec84b;
+  --error-muted: #3a1412;
+  --error-strong: #fda29b;
+
+  /* Terminal vốn đã tối — giữ gần như nguyên, chỉ nhích nền cho hoà với trang. */
+  --term-bg: #070b18;
+  --term-bar: #0c1226;
+
+  --cat-edge-bg: #2b1650;
+  --cat-edge-fg: #d8b4fe;
+
+  /* Ở dark, "nghịch đảo với trang" không còn nghĩa là tối hơn nữa — nền trang đã
+     tối rồi. Nâng toast/code lên một bậc SÁNG hơn nền để chúng vẫn nổi lên như
+     một lớp riêng, thay vì chìm vào nền. */
+  --toast-bg: #232e52;
+  --toast-fg: #f4f7fd;
+  --code-bg: #070b18;
+  --code-fg: #ccd4e8;
+}
+
+/*
+  Shadow ở dark: bóng đen trên nền đen là vô hình, nên độ nổi khối chuyển sang
+  dùng viền sáng nhẹ. Khai lại chính các biến `--shadow-*` mà `@theme inline`
+  đọc, nên mọi utility `shadow-sm..shadow-xl` tự đổi mà không phải sửa component.
+*/
+.dark {
+  --shadow-xs: 0 1px 2px rgb(0 0 0 / 0.4);
+  --shadow-sm: 0 1px 3px rgb(0 0 0 / 0.5), 0 1px 2px rgb(0 0 0 / 0.35);
+  --shadow-md: 0 4px 8px -2px rgb(0 0 0 / 0.55), 0 2px 4px -2px rgb(0 0 0 / 0.4);
+  --shadow-lg: 0 12px 16px -4px rgb(0 0 0 / 0.55), 0 4px 6px -2px rgb(0 0 0 / 0.4);
+  --shadow-xl: 0 20px 24px -4px rgb(0 0 0 / 0.6), 0 8px 8px -4px rgb(0 0 0 / 0.45);
+  --shadow-glow: 0 0 24px rgb(107 131 238 / 0.35);
 }
 
 @theme inline {
@@ -89,6 +215,7 @@
 
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-surface: var(--surface);
   --color-card: var(--card);
   --color-card-foreground: var(--card-foreground);
   --color-popover: var(--popover);
@@ -152,6 +279,8 @@
   --color-term-red: var(--term-red);
   --color-cat-edge-bg: var(--cat-edge-bg);
   --color-cat-edge-fg: var(--cat-edge-fg);
+  --color-code-bg: var(--code-bg);
+  --color-code-fg: var(--code-fg);
 
   --radius-2xl: calc(var(--radius) + 8px);
 
@@ -172,6 +301,14 @@
 @layer base {
   * {
     @apply border-border outline-ring/50;
+  }
+  /* Cuộn mượt cho CTA nhảy tới `#studio`. Đặt trong `@media` thay vì để
+     `scroll-behavior: smooth` trần rồi tắt sau: người tắt animation ở hệ điều
+     hành thì không bao giờ nhận thuộc tính này, chứ không phải nhận rồi bị ghi đè. */
+  @media (prefers-reduced-motion: no-preference) {
+    html {
+      scroll-behavior: smooth;
+    }
   }
   body {
     @apply bg-background text-foreground;

@@ -4,6 +4,7 @@ import { ArrowLeft, ArrowRight } from "lucide-react";
 import { Button } from "~/components/ui/button";
 import { Panel, PanelBody, PanelFoot, PanelSub, PanelTitle } from "~/components/ui/panel";
 import type { EvalResult, Persona } from "~/server/agentforge/schemas";
+import type { StoredEvalResult } from "~/server/db/queries/eval";
 import { ArtifactCards } from "./artifact-cards";
 import { BuildTerminal, type TerminalLine } from "./build-terminal";
 import { EvalSummary } from "./eval-summary";
@@ -15,7 +16,14 @@ export interface Step3ViewProps {
   error: string | null;
   artifacts: { persona: Persona; systemPrompt: string; guardrails: string[] } | null;
   evalSummary: EvalResult["summary"] | null;
-  evalResults: EvalResult["results"];
+  evalResults: StoredEvalResult[];
+  /**
+   * Lượt kiểm định đang hiển thị. `null` khi bảng điểm vừa chạy xong và chưa đọc
+   * lại từ DB — lúc đó chưa có địa chỉ nào để gửi một lần sửa tới, nên danh sách
+   * ở chế độ chỉ đọc thay vì mời người dùng sửa rồi mới báo hỏng.
+   */
+  evalRunId: string | null;
+  onSaveAnswer: (ord: number, answer: string) => Promise<void>;
   /**
    * True khi Bước 3 đã dựng lại màn hình từ dữ liệu đã lưu thay vì tự chạy. Đó là
    * đường DUY NHẤT mà auto-run bị chặn, nên cũng là đường duy nhất cần một nút dựng
@@ -66,7 +74,12 @@ export function Step3BuildView(p: Step3ViewProps) {
         )}
 
         {p.evalSummary && <EvalSummary summary={p.evalSummary} />}
-        {p.evalSummary && <EvalTestList results={p.evalResults} />}
+        {p.evalSummary && (
+          <EvalTestList
+            results={p.evalResults}
+            onSaveAnswer={p.evalRunId ? p.onSaveAnswer : undefined}
+          />
+        )}
 
         {p.hydratedFromStored && (
           <div className="mt-6 flex flex-wrap items-center gap-3 rounded-xl border border-border p-4">

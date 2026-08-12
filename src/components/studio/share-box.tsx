@@ -23,7 +23,7 @@ export function ShareBox({
   return (
     <div className="mt-6 rounded-xl border border-fci-100 bg-fci-50 px-[22px] py-5">
       <h4 className="mb-1 text-[15px] font-extrabold text-fci-800">Chia sẻ trang demo</h4>
-      <p className="mb-3.5 text-[13.5px] text-gray-600">
+      <p className="mb-3.5 text-sm text-gray-600">
         Gửi link này cho đồng nghiệp để xem thử — không cần đăng nhập.
       </p>
 
@@ -34,7 +34,7 @@ export function ShareBox({
           step4-demo.test.tsx) tìm theo text node trực tiếp của một phần tử; tách
           URL ra nhiều phần tử con là cách chắc chắn nhất làm test đó hết khớp.
         */}
-        <code className="flex min-w-[260px] flex-1 items-center gap-2.5 rounded-lg border border-gray-300 bg-white px-3.5 py-2.5 font-mono text-[13.5px] text-gray-600">
+        <code className="flex min-w-[260px] flex-1 items-center gap-2.5 rounded-lg border border-gray-300 bg-surface px-3.5 py-2.5 font-mono text-sm text-gray-600">
           {url}
         </code>
         <Button variant="outline" size="sm" onClick={onCopy}>

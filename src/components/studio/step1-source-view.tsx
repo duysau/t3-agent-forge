@@ -84,7 +84,7 @@ export function Step1SourceView(p: Step1ViewProps) {
                 onChange={(e) => p.onUrlChange(e.target.value)}
                 placeholder="https://senspa.vn"
                 disabled={p.crawling}
-                className="h-auto w-full rounded-lg border border-gray-300 bg-white px-3.5 py-3 text-[15px] transition-[border-color,box-shadow] focus-visible:border-primary focus-visible:ring-4 focus-visible:ring-fci-50 md:text-[15px]"
+                className="h-auto w-full rounded-lg border border-gray-300 bg-surface px-3.5 py-3 text-[15px] transition-[border-color,box-shadow] focus-visible:border-primary focus-visible:ring-4 focus-visible:ring-fci-50 md:text-[15px]"
               />
               <Button onClick={p.onCrawl} disabled={p.crawling || p.url.trim().length === 0}>
                 {p.crawling ? "Đang crawl…" : "Crawl website"}
@@ -93,6 +93,32 @@ export function Step1SourceView(p: Step1ViewProps) {
             <p className="mt-[7px] text-[13px] text-gray-500">
               Crawl có thể mất tới 3 phút. Mất mạng hoặc backend lỗi sẽ tự chuyển sang kịch bản mẫu.
             </p>
+
+            {/*
+              Chip kịch bản mẫu — đường DUY NHẤT trong giao diện gọi tới
+              `onPickExample`, tức đường duy nhất crawl với `mode: "fixture"`.
+              Không có nó thì prop này mồ côi và `FIXTURES` thành import chết
+              (đúng lỗi làm `next build` fail).
+
+              Tên nút phải chứa tên brand (`FIXTURES[key].brand.name`), vì đó là
+              thứ người dùng nhận ra — và cũng là cách test định vị nút
+              (`getByRole("button", { name: /Sen Spa/ })`).
+            */}
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <span className="text-[13px] text-gray-500">Hoặc thử kịch bản mẫu:</span>
+              {(Object.keys(FIXTURES) as FixtureKey[]).map((key) => (
+                <button
+                  key={key}
+                  type="button"
+                  disabled={p.crawling}
+                  onClick={() => p.onPickExample(key)}
+                  className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-fci-100 bg-fci-50 px-3 py-1.5 text-xs font-semibold text-fci-700 transition-colors outline-none hover:bg-fci-100 focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <span aria-hidden>{FIXTURES[key].brand.logo}</span>
+                  {FIXTURES[key].brand.name}
+                </button>
+              ))}
+            </div>
           </div>
 
           <div>
@@ -101,7 +127,7 @@ export function Step1SourceView(p: Step1ViewProps) {
               type="button"
               onClick={() => fileRef.current?.click()}
               disabled={p.result === null || p.uploading}
-              className="w-full cursor-pointer rounded-xl border-2 border-dashed border-gray-300 bg-gray-25 p-[26px] text-center text-gray-500 transition-all hover:border-fci-300 hover:bg-fci-50 disabled:cursor-not-allowed disabled:opacity-60"
+              className="w-full cursor-pointer rounded-xl border-2 border-dashed border-gray-300 bg-gray-25 p-[26px] text-center text-gray-500 transition-all outline-none hover:border-fci-300 hover:bg-fci-50 focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-60"
             >
               <FileUp className="mx-auto mb-2.5 size-[42px] text-fci-400" />
               <span className="block font-semibold text-gray-700">
@@ -134,31 +160,6 @@ export function Step1SourceView(p: Step1ViewProps) {
                 {p.pdfError}
               </p>
             )}
-          </div>
-        </div>
-
-        <div className="mt-[22px] border-t border-dashed border-border pt-[22px]">
-          <span className="block text-sm font-semibold text-gray-700">
-            Hoặc dùng kịch bản mẫu (chạy offline, không phụ thuộc mạng)
-          </span>
-          <div className="mt-3 flex flex-wrap gap-3">
-            {(Object.values(FIXTURES)).map((f) => (
-              <button
-                key={f.key}
-                type="button"
-                disabled={p.crawling}
-                onClick={() => p.onPickExample(f.key)}
-                className="flex min-w-[210px] items-center gap-2.5 rounded-lg border border-gray-300 bg-white px-4 py-3 text-left transition-all hover:border-primary hover:shadow-sm disabled:opacity-50"
-              >
-                <span className="text-[22px]">{f.brand.logo}</span>
-                <span>
-                  <span className="block text-sm font-bold text-gray-900">{f.brand.name}</span>
-                  <span className="block text-xs text-gray-500">
-                    {f.domain} · {f.brand.industry}
-                  </span>
-                </span>
-              </button>
-            ))}
           </div>
         </div>
 
@@ -207,7 +208,7 @@ export function Step1SourceView(p: Step1ViewProps) {
                         <Minus className="size-3.5 shrink-0 text-gray-400" />
                       )}
                       <span className="font-medium text-gray-700">{page.title ?? page.url}</span>
-                      <span className="ml-auto truncate font-mono text-[13px] text-gray-400">
+                      <span className="ml-auto truncate font-mono text-[13px] text-gray-500">
                         {page.url}
                       </span>
                     </li>

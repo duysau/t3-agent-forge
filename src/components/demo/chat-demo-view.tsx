@@ -44,10 +44,10 @@ export function ChatDemoView(p: ChatViewProps) {
               <p
                 data-testid="chat-bubble"
                 className={cn(
-                  "rounded-[14px] px-[15px] py-2.5 text-[14.5px] leading-[1.55]",
+                  "rounded-[14px] px-[15px] py-2.5 text-sm leading-[1.55]",
                   isUser
                     ? "rounded-tr-[4px] bg-primary text-primary-foreground"
-                    : "rounded-tl-[4px] border border-border bg-white text-gray-800",
+                    : "rounded-tl-[4px] border border-border bg-surface text-gray-800",
                 )}
               >
                 {m.content}
@@ -84,7 +84,7 @@ export function ChatDemoView(p: ChatViewProps) {
               variant="outline"
               size="sm"
               onClick={() => p.onPickSuggested(q)}
-              className="rounded-full border-fci-100 bg-fci-50 px-3 py-1.5 text-[12.5px] text-fci-700 hover:bg-fci-100 hover:text-fci-700"
+              className="rounded-full border-fci-100 bg-fci-50 px-3 py-1.5 text-xs text-fci-700 hover:bg-fci-100 hover:text-fci-700"
             >
               {q}
             </Button>
@@ -100,7 +100,7 @@ export function ChatDemoView(p: ChatViewProps) {
         }}
       >
         {/*
-          `h-auto` / `md:text-[14.5px]` / `focus-visible:` đều để thắng phần base của
+          `h-auto` / `md:text-sm` / `focus-visible:` đều để thắng phần base của
           `Input` (shadcn) — twMerge chỉ gỡ xung đột trong cùng nhóm utility, nên nếu
           không có class cùng nhóm thì base thắng. Ở đây hậu quả nhìn thấy rõ nhất:
           `h-9` của base cho ô nhập 36px nằm cạnh nút gửi `size-11` (44px), trong khi
@@ -113,7 +113,7 @@ export function ChatDemoView(p: ChatViewProps) {
           onChange={(e) => p.onDraftChange(e.target.value)}
           placeholder="Nhập câu hỏi của bạn…"
           disabled={p.sending}
-          className="h-auto flex-1 rounded-full border border-gray-300 px-4 py-[11px] text-[14.5px] focus-visible:border-primary focus-visible:ring-[3px] focus-visible:ring-fci-50 md:text-[14.5px]"
+          className="h-auto flex-1 rounded-full border border-gray-300 px-4 py-[11px] text-sm focus-visible:border-primary focus-visible:ring-[3px] focus-visible:ring-fci-50 md:text-sm"
         />
         {/*
           Nút gửi giờ chỉ còn icon — không có chữ "Gửi" nào còn hiển thị trong DOM.

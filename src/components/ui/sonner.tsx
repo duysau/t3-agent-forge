@@ -38,10 +38,16 @@ const Toaster = ({ ...props }: ToasterProps) => {
       }
       toastOptions={{
         classNames: {
+          /*
+            `--toast-*` là cặp nền/chữ nghịch đảo với trang, khai trong globals.css
+            cho cả hai theme. Trước đây là `!bg-gray-900 !text-white`: khi thang gray
+            đảo ở dark mode, `gray-900` thành gần TRẮNG trong khi chữ vẫn `text-white`
+            — toast trắng trên chữ trắng, không đọc được gì.
+          */
           toast:
-            "!bg-gray-900 !text-white !border-transparent !shadow-xl !rounded-lg !gap-[9px] !text-sm !font-medium",
-          success: "!text-white [&_svg]:!text-success",
-          warning: "!text-white [&_svg]:!text-warning",
+            "!bg-[var(--toast-bg)] !text-[var(--toast-fg)] !border-transparent !shadow-xl !rounded-lg !gap-[9px] !text-sm !font-medium",
+          success: "[&_svg]:!text-success",
+          warning: "[&_svg]:!text-warning",
         },
       }}
       {...props}

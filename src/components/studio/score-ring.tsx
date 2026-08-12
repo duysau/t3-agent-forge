@@ -20,7 +20,14 @@ export function ScoreRing({ percent, label }: { percent: number; label?: string 
           strokeLinecap="round"
           strokeDasharray={CIRCUMFERENCE}
           strokeDashoffset={offset}
-          className="text-white transition-[stroke-dashoffset] duration-1000"
+          /*
+            Giữ 1000ms — dài hơn ngưỡng 150-300ms của micro-interaction, nhưng đây
+            không phải đổi trạng thái UI mà là một lượt "quét" số điểm từ 0 tới giá
+            trị thật; chính khoảng thời gian đó mới làm con số đọc được như một kết
+            quả vừa được tính. `motion-reduce:transition-none` để người tắt animation
+            thấy ngay giá trị cuối thay vì chờ.
+          */
+          className="text-white transition-[stroke-dashoffset] duration-1000 motion-reduce:transition-none"
         />
       </svg>
       <div className="absolute text-center">

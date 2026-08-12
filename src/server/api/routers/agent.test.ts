@@ -200,6 +200,101 @@ describe("agent.evaluate", () => {
   });
 });
 
+describe("agent.updateEvalAnswer", () => {
+  /** Dựng một agent đã chấm điểm xong, trả về caller kèm run đang hiện. */
+  const evaluated = async () => {
+    const agent = await h.seedAgent();
+    const api = h.caller();
+    await api.agent.setProduct({ slug: agent.slug, product: "chat" });
+    await api.agent.build({ slug: agent.slug });
+    await api.agent.evaluate({ slug: agent.slug });
+    const run = await api.agent.evalRun({ slug: agent.slug });
+    return { agent, api, run: run! };
+  };
+
+  it("lưu câu trả lời đã sửa và đọc lại thấy đúng", async () => {
+    const { agent, api, run } = await evaluated();
+
+    const out = await api.agent.updateEvalAnswer({
+      slug: agent.slug,
+      runId: run.id,
+      ord: 2,
+      answer: "câu trả lời do người dùng sửa",
+    });
+    expect(out.answer).toBe("câu trả lời do người dùng sửa");
+
+    const after = await api.agent.evalRun({ slug: agent.slug });
+    expect(after?.results[2]?.answer).toBe("câu trả lời do người dùng sửa");
+  });
+
+  it("không làm lệch bảng tổng kết", async () => {
+    const { agent, api, run } = await evaluated();
+    await api.agent.updateEvalAnswer({ slug: agent.slug, runId: run.id, ord: 0, answer: "khác" });
+
+    const after = await api.agent.evalRun({ slug: agent.slug });
+    expect(after?.summary).toEqual(run.summary);
+    expect(after?.results[0]?.score).toBe(run.results[0]?.score);
+    expect(after?.results[0]?.passed).toBe(run.results[0]?.passed);
+  });
+
+  it("cắt khoảng trắng hai đầu trước khi lưu", async () => {
+    const { agent, api, run } = await evaluated();
+    await api.agent.updateEvalAnswer({
+      slug: agent.slug,
+      runId: run.id,
+      ord: 1,
+      answer: "   đã cắt   ",
+    });
+
+    const after = await api.agent.evalRun({ slug: agent.slug });
+    expect(after?.results[1]?.answer).toBe("đã cắt");
+  });
+
+  it("từ chối câu trả lời rỗng hoặc toàn khoảng trắng", async () => {
+    const { agent, api, run } = await evaluated();
+    for (const answer of ["", "   "]) {
+      await expect(
+        api.agent.updateEvalAnswer({ slug: agent.slug, runId: run.id, ord: 0, answer }),
+      ).rejects.toThrow();
+    }
+  });
+
+  it("ord không tồn tại thì báo NOT_FOUND", async () => {
+    const { agent, api, run } = await evaluated();
+    await expect(
+      api.agent.updateEvalAnswer({ slug: agent.slug, runId: run.id, ord: 99, answer: "x" }),
+    ).rejects.toThrow(TRPCError);
+  });
+
+  it("slug không tồn tại thì báo NOT_FOUND", async () => {
+    const { run } = await evaluated();
+    await expect(
+      h.caller().agent.updateEvalAnswer({ slug: "khong-co", runId: run.id, ord: 0, answer: "x" }),
+    ).rejects.toThrow(/không tìm thấy agent/i);
+  });
+
+  /**
+   * Run của agent khác không sửa được, kể cả khi biết UUID — nếu không, một slug bất
+   * kỳ sẽ ghi đè được bảng điểm của agent khác.
+   */
+  it("không sửa được bảng điểm của agent khác", async () => {
+    const victim = await evaluated();
+    const attacker = await evaluated();
+
+    await expect(
+      attacker.api.agent.updateEvalAnswer({
+        slug: attacker.agent.slug,
+        runId: victim.run.id,
+        ord: 0,
+        answer: "xâm nhập",
+      }),
+    ).rejects.toThrow(TRPCError);
+
+    const after = await victim.api.agent.evalRun({ slug: victim.agent.slug });
+    expect(after?.results[0]?.answer).toBe(victim.run.results[0]?.answer);
+  });
+});
+
 describe("agent.artifacts", () => {
   it("chưa dựng thì trả null", async () => {
     const agent = await h.seedAgent();

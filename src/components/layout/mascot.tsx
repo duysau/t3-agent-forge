@@ -7,9 +7,26 @@
  * một `id="afBody"` trần sẽ đụng bất kỳ SVG khác dùng cùng tên.
  */
 export function Mascot() {
+  /*
+    Mascot chạy 4 animation vô hạn (floaty, bubble, antenna, wavehand). Khi hero
+    đã cuộn khỏi màn hình thì chúng vẫn quay, tiếp tục ăn CPU/battery và cạnh
+    tranh với chính cú cuộn của người dùng — mà không ai nhìn thấy.
+
+    `content-visibility: auto` + `contain-intrinsic-size` để trình duyệt tự bỏ
+    qua việc render (kèm animation) khi khối này ra ngoài viewport. Chọn cách
+    này thay vì IntersectionObserver: không cần biến component thành client
+    component, không thêm state, và trình duyệt không hỗ trợ thì đơn giản là
+    hành vi cũ — không có gì hỏng.
+
+    `contain-intrinsic-size` bắt buộc phải có: thiếu nó thì khối bị skip có
+    chiều cao 0 và layout nhảy đúng lúc cuộn tới (CLS).
+  */
   return (
-    <div className="relative w-full max-w-[380px] animate-floaty max-[900px]:max-w-[220px]">
-      <div className="absolute top-[2%] -left-[2%] z-10 animate-bubble rounded-2xl rounded-bl-[4px] border border-fci-100 bg-white px-[15px] py-[9px] text-[15px] font-bold whitespace-nowrap text-fci-700 shadow-md max-[900px]:hidden">
+    <div
+      style={{ contentVisibility: "auto", containIntrinsicSize: "380px 400px" }}
+      className="relative w-full max-w-[380px] animate-floaty max-[900px]:max-w-[220px]"
+    >
+      <div className="absolute top-[2%] -left-[2%] z-10 animate-bubble rounded-2xl rounded-bl-[4px] border border-fci-100 bg-surface px-[15px] py-[9px] text-[15px] font-bold whitespace-nowrap text-fci-700 shadow-md max-[900px]:hidden">
         Xin chào! 👋
       </div>
       <svg

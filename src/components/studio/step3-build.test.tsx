@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { StrictMode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { EvalResult, Persona } from "~/server/agentforge/schemas";
+import type { StoredEvalResult } from "~/server/db/queries/eval";
 import { Step3Build } from "./step3-build";
 import type { Step3ViewProps } from "./step3-build-view";
 
@@ -20,39 +21,60 @@ interface EvalInput {
 type EvalOutput = EvalResult["summary"] & { results: EvalResult["results"] };
 
 interface StoredRun {
+  id: string;
   summary: EvalResult["summary"];
-  results: EvalResult["results"];
+  results: StoredEvalResult[];
 }
 interface QueryState<T> {
   data: T | undefined;
   isPending: boolean;
   error: { message: string } | null;
+  /** Bước 3 gọi lại sau khi eval xong, để lấy `ord` và id của run vừa lưu. */
+  refetch: () => Promise<{ data: T | undefined }>;
+}
+interface UpdateAnswerInput {
+  slug: string;
+  runId: string;
+  ord: number;
+  answer: string;
 }
 
-const { buildMutation, evaluateMutation, evalRunQuery, artifactsQuery, notifyOk } = vi.hoisted(
-  () => ({
-    buildMutation: { mutateAsync: vi.fn<(input: BuildInput) => Promise<BuildOutput>>() },
-    evaluateMutation: { mutateAsync: vi.fn<(input: EvalInput) => Promise<EvalOutput>>() },
-    // Hai query mà Bước 3 đọc TRƯỚC khi quyết định có dựng hay không.
-    evalRunQuery: {
-      data: null,
-      isPending: false,
-      error: null,
-    } as QueryState<StoredRun | null>,
-    artifactsQuery: {
-      data: null,
-      isPending: false,
-      error: null,
-    } as QueryState<BuildOutput | null>,
-    notifyOk: vi.fn<(message: string) => void>(),
-  }),
-);
+const {
+  buildMutation,
+  evaluateMutation,
+  updateAnswerMutation,
+  evalRunQuery,
+  artifactsQuery,
+  notifyOk,
+} = vi.hoisted(() => ({
+  buildMutation: { mutateAsync: vi.fn<(input: BuildInput) => Promise<BuildOutput>>() },
+  evaluateMutation: { mutateAsync: vi.fn<(input: EvalInput) => Promise<EvalOutput>>() },
+  updateAnswerMutation: {
+    mutateAsync:
+      vi.fn<(input: UpdateAnswerInput) => Promise<{ ord: number; answer: string }>>(),
+  },
+  // Hai query mà Bước 3 đọc TRƯỚC khi quyết định có dựng hay không.
+  evalRunQuery: {
+    data: null,
+    isPending: false,
+    error: null,
+    refetch: vi.fn(),
+  } as unknown as QueryState<StoredRun | null>,
+  artifactsQuery: {
+    data: null,
+    isPending: false,
+    error: null,
+    refetch: vi.fn(),
+  } as unknown as QueryState<BuildOutput | null>,
+  notifyOk: vi.fn<(message: string) => void>(),
+}));
 
 vi.mock("~/trpc/react", () => ({
   api: {
     agent: {
       build: { useMutation: () => buildMutation },
       evaluate: { useMutation: () => evaluateMutation },
+      updateEvalAnswer: { useMutation: () => updateAnswerMutation },
       evalRun: { useQuery: (_input: { slug: string }) => evalRunQuery },
       artifacts: { useQuery: (_input: { slug: string }) => artifactsQuery },
     },
@@ -94,6 +116,7 @@ const EVALUATED: EvalOutput = {
   results: [],
 };
 const STORED_RUN: StoredRun = {
+  id: "run-1",
   summary: {
     passRate: EVALUATED.passRate,
     avgScore: EVALUATED.avgScore,
@@ -101,7 +124,17 @@ const STORED_RUN: StoredRun = {
     total: EVALUATED.total,
     breakdown: EVALUATED.breakdown,
   },
-  results: [],
+  results: [
+    {
+      question: "Q1",
+      answer: "câu trả lời gốc",
+      score: 5,
+      passed: true,
+      reasoning: "r",
+      category: "grounded",
+      ord: 0,
+    },
+  ],
 };
 
 function renderStep3Build(onEvaluatedChange: (value: boolean) => void = vi.fn()) {
@@ -119,9 +152,13 @@ describe("Step3Build", () => {
   beforeEach(() => {
     buildMutation.mutateAsync.mockReset();
     evaluateMutation.mutateAsync.mockReset();
+    updateAnswerMutation.mutateAsync.mockReset();
     evalRunQuery.data = null;
     evalRunQuery.isPending = false;
     evalRunQuery.error = null;
+    // Mặc định: đọc lại sau eval trả về run đã lưu. Từng test ghi đè nếu cần.
+    vi.mocked(evalRunQuery.refetch).mockReset();
+    vi.mocked(evalRunQuery.refetch).mockResolvedValue({ data: STORED_RUN });
     artifactsQuery.data = null;
     artifactsQuery.isPending = false;
     artifactsQuery.error = null;
@@ -385,5 +422,76 @@ describe("Step3Build", () => {
     expect(notifyOk).toHaveBeenCalledWith(
       `Kiểm định xong · ${EVALUATED.passed}/${EVALUATED.total} bài đạt`,
     );
+  });
+
+  /**
+   * `evaluate` trả về dữ liệu backend vừa sinh, chưa có `ord` lẫn id của run — hai
+   * thứ chỉ có sau khi ghi xuống DB. Không đọc lại thì danh sách hiện những hàng
+   * không sửa được, và người dùng chỉ biết điều đó khi bấm Lưu rồi hỏng.
+   */
+  it("eval xong thì đọc lại bản đã lưu để có ord và runId", async () => {
+    buildMutation.mutateAsync.mockResolvedValue(BUILT);
+    evaluateMutation.mutateAsync.mockResolvedValue(EVALUATED);
+
+    renderStep3Build();
+
+    await waitFor(() => expect(evalRunQuery.refetch).toHaveBeenCalledTimes(1));
+
+    // Danh sách hiện hàng ĐÃ LƯU (mở được ô sửa), không phải mảng rỗng mà
+    // `evaluate` vừa trả về.
+    await userEvent.click(await screen.findByRole("button", { name: /Q1/ }));
+    expect(screen.getByRole("button", { name: /Sửa câu trả lời/ })).toBeInTheDocument();
+  });
+
+  it("sửa câu trả lời gửi đúng runId và ord rồi cập nhật tại chỗ", async () => {
+    evalRunQuery.data = STORED_RUN;
+    artifactsQuery.data = BUILT;
+    updateAnswerMutation.mutateAsync.mockResolvedValue({ ord: 0, answer: "đã sửa" });
+
+    renderStep3Build();
+
+    await userEvent.click(await screen.findByRole("button", { name: /Q1/ }));
+    await userEvent.click(screen.getByRole("button", { name: /Sửa câu trả lời/ }));
+    const box = screen.getByRole("textbox");
+    await userEvent.clear(box);
+    await userEvent.type(box, "đã sửa");
+    await userEvent.click(screen.getByRole("button", { name: "Lưu" }));
+
+    await waitFor(() =>
+      expect(updateAnswerMutation.mutateAsync).toHaveBeenCalledWith({
+        slug: "demo-agent",
+        runId: "run-1",
+        ord: 0,
+        answer: "đã sửa",
+      }),
+    );
+
+    expect(await screen.findByText("đã sửa")).toBeInTheDocument();
+    expect(screen.queryByText("câu trả lời gốc")).not.toBeInTheDocument();
+    expect(notifyOk).toHaveBeenCalledWith("Đã lưu câu trả lời");
+  });
+
+  /**
+   * Lưu hỏng thì KHÔNG được vá màn hình: hiện câu trả lời mới trong khi DB vẫn giữ
+   * câu cũ là nói dối về thứ đã lưu, và lần mở lại sau sẽ thấy câu cũ quay về.
+   */
+  it("lưu hỏng thì giữ nguyên câu trả lời cũ trên màn hình", async () => {
+    evalRunQuery.data = STORED_RUN;
+    artifactsQuery.data = BUILT;
+    updateAnswerMutation.mutateAsync.mockRejectedValue(new Error("Mất kết nối"));
+
+    renderStep3Build();
+
+    await userEvent.click(await screen.findByRole("button", { name: /Q1/ }));
+    await userEvent.click(screen.getByRole("button", { name: /Sửa câu trả lời/ }));
+    const box = screen.getByRole("textbox");
+    await userEvent.clear(box);
+    await userEvent.type(box, "đã sửa");
+    await userEvent.click(screen.getByRole("button", { name: "Lưu" }));
+
+    await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("Mất kết nối"));
+    expect(notifyOk).not.toHaveBeenCalledWith("Đã lưu câu trả lời");
+    // Ô nhập còn nguyên đoạn vừa gõ, và câu trả lời đã lưu chưa bị đổi.
+    expect(screen.getByRole("textbox")).toHaveValue("đã sửa");
   });
 });

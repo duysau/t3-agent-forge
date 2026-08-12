@@ -1,10 +1,10 @@
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { EvalTestList } from "./eval-test-list";
-import type { EvalResult } from "~/server/agentforge/schemas";
+import type { StoredEvalResult } from "~/server/db/queries/eval";
 
-const RESULTS: EvalResult["results"] = [
+const RESULTS: StoredEvalResult[] = [
   ...Array.from({ length: 8 }, (_, i) => ({
     question: `Grounded ${i + 1}`,
     answer: "a",
@@ -12,6 +12,7 @@ const RESULTS: EvalResult["results"] = [
     passed: true,
     reasoning: "đúng KB",
     category: "grounded" as const,
+    ord: i,
   })),
   ...Array.from({ length: 6 }, (_, i) => ({
     question: `Trap ${i + 1}`,
@@ -20,6 +21,7 @@ const RESULTS: EvalResult["results"] = [
     passed: i !== 0,
     reasoning: "từ chối đúng",
     category: "trap" as const,
+    ord: 8 + i,
   })),
   ...Array.from({ length: 6 }, (_, i) => ({
     question: `Edge ${i + 1}`,
@@ -28,6 +30,7 @@ const RESULTS: EvalResult["results"] = [
     passed: true,
     reasoning: "chuyển tiếp",
     category: "edge" as const,
+    ord: 14 + i,
   })),
 ];
 
@@ -136,5 +139,130 @@ describe("EvalTestList", () => {
     const rows = screen.getAllByTestId("eval-row");
     expect(within(rows[0]!).getByText("09")).toBeInTheDocument();
     expect(within(rows[5]!).getByText("14")).toBeInTheDocument();
+  });
+});
+
+describe("EvalTestList — sửa câu trả lời", () => {
+  const openFirstRow = async () => {
+    await userEvent.click(screen.getByRole("button", { name: /Grounded 1/ }));
+  };
+
+  it("không có onSaveAnswer thì không mời sửa", async () => {
+    render(<EvalTestList results={RESULTS.slice(0, 1)} />);
+    await openFirstRow();
+    expect(screen.queryByRole("button", { name: /Sửa câu trả lời/ })).not.toBeInTheDocument();
+  });
+
+  it("nút sửa chỉ hiện sau khi mở dòng", async () => {
+    render(<EvalTestList results={RESULTS.slice(0, 1)} onSaveAnswer={vi.fn()} />);
+    expect(screen.queryByRole("button", { name: /Sửa câu trả lời/ })).not.toBeInTheDocument();
+    await openFirstRow();
+    expect(screen.getByRole("button", { name: /Sửa câu trả lời/ })).toBeInTheDocument();
+  });
+
+  it("ô nhập mở ra mang sẵn câu trả lời hiện tại", async () => {
+    render(<EvalTestList results={RESULTS.slice(0, 1)} onSaveAnswer={vi.fn()} />);
+    await openFirstRow();
+    await userEvent.click(screen.getByRole("button", { name: /Sửa câu trả lời/ }));
+    expect(screen.getByRole("textbox")).toHaveValue("a");
+  });
+
+  it("lưu gửi đúng ord của bài và nội dung đã sửa", async () => {
+    const onSaveAnswer = vi.fn().mockResolvedValue(undefined);
+    render(<EvalTestList results={RESULTS} onSaveAnswer={onSaveAnswer} />);
+
+    await userEvent.click(screen.getByRole("button", { name: /Trap 1/ }));
+    await userEvent.click(screen.getByRole("button", { name: /Sửa câu trả lời/ }));
+    const box = screen.getByRole("textbox");
+    await userEvent.clear(box);
+    await userEvent.type(box, "câu trả lời mới");
+    await userEvent.click(screen.getByRole("button", { name: "Lưu" }));
+
+    // Trap 1 là bài thứ 9 trong danh sách, tức ord 8 — không phải 0.
+    expect(onSaveAnswer).toHaveBeenCalledWith(8, "câu trả lời mới");
+  });
+
+  it("cắt khoảng trắng thừa trước khi lưu", async () => {
+    const onSaveAnswer = vi.fn().mockResolvedValue(undefined);
+    render(<EvalTestList results={RESULTS.slice(0, 1)} onSaveAnswer={onSaveAnswer} />);
+    await openFirstRow();
+    await userEvent.click(screen.getByRole("button", { name: /Sửa câu trả lời/ }));
+    const box = screen.getByRole("textbox");
+    await userEvent.clear(box);
+    await userEvent.type(box, "  đã cắt  ");
+    await userEvent.click(screen.getByRole("button", { name: "Lưu" }));
+
+    expect(onSaveAnswer).toHaveBeenCalledWith(0, "đã cắt");
+  });
+
+  it("từ chối lưu câu trả lời rỗng, không gọi server", async () => {
+    const onSaveAnswer = vi.fn();
+    render(<EvalTestList results={RESULTS.slice(0, 1)} onSaveAnswer={onSaveAnswer} />);
+    await openFirstRow();
+    await userEvent.click(screen.getByRole("button", { name: /Sửa câu trả lời/ }));
+    await userEvent.clear(screen.getByRole("textbox"));
+    await userEvent.click(screen.getByRole("button", { name: "Lưu" }));
+
+    expect(onSaveAnswer).not.toHaveBeenCalled();
+    expect(screen.getByRole("alert")).toHaveTextContent(/không được để trống/i);
+    // Ô nhập phải còn đó để người dùng sửa tiếp.
+    expect(screen.getByRole("textbox")).toBeInTheDocument();
+  });
+
+  it("huỷ thì bỏ bản nháp và không gọi server", async () => {
+    const onSaveAnswer = vi.fn();
+    render(<EvalTestList results={RESULTS.slice(0, 1)} onSaveAnswer={onSaveAnswer} />);
+    await openFirstRow();
+    await userEvent.click(screen.getByRole("button", { name: /Sửa câu trả lời/ }));
+    await userEvent.type(screen.getByRole("textbox"), "gõ dở");
+    await userEvent.click(screen.getByRole("button", { name: "Huỷ" }));
+
+    expect(onSaveAnswer).not.toHaveBeenCalled();
+    expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
+    expect(screen.getByText("a")).toBeInTheDocument();
+  });
+
+  /**
+   * Lưu hỏng mà vẫn đóng ô nhập là ném mất đoạn người dùng vừa gõ — họ không có
+   * cách nào lấy lại, và màn hình trông như đã lưu xong.
+   */
+  it("lưu hỏng thì giữ nguyên ô nhập kèm lý do", async () => {
+    const onSaveAnswer = vi.fn().mockRejectedValue(new Error("Mất kết nối"));
+    render(<EvalTestList results={RESULTS.slice(0, 1)} onSaveAnswer={onSaveAnswer} />);
+    await openFirstRow();
+    await userEvent.click(screen.getByRole("button", { name: /Sửa câu trả lời/ }));
+    const box = screen.getByRole("textbox");
+    await userEvent.clear(box);
+    await userEvent.type(box, "sửa rồi");
+    await userEvent.click(screen.getByRole("button", { name: "Lưu" }));
+
+    await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("Mất kết nối"));
+    expect(screen.getByRole("textbox")).toHaveValue("sửa rồi");
+  });
+
+  /**
+   * Bản nháp neo theo `ord`, không theo vị trí trong danh sách đã lọc. Nếu neo sai,
+   * đổi filter sẽ kéo ô nhập đang gõ dở sang một bài khác — và cú "Lưu" tiếp theo
+   * ghi đè lên bài không liên quan.
+   */
+  it("đổi filter không kéo ô nhập sang bài khác", async () => {
+    render(<EvalTestList results={RESULTS} onSaveAnswer={vi.fn()} />);
+    await userEvent.click(screen.getByRole("button", { name: /Grounded 1/ }));
+    await userEvent.click(screen.getByRole("button", { name: /Sửa câu trả lời/ }));
+    expect(screen.getByRole("textbox")).toBeInTheDocument();
+
+    await userEvent.click(filters().getByRole("button", { name: /Cần bổ sung KB/ }));
+    expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
+  });
+
+  it("Escape đóng ô nhập mà không lưu", async () => {
+    const onSaveAnswer = vi.fn();
+    render(<EvalTestList results={RESULTS.slice(0, 1)} onSaveAnswer={onSaveAnswer} />);
+    await openFirstRow();
+    await userEvent.click(screen.getByRole("button", { name: /Sửa câu trả lời/ }));
+    await userEvent.type(screen.getByRole("textbox"), "{Escape}");
+
+    expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
+    expect(onSaveAnswer).not.toHaveBeenCalled();
   });
 });

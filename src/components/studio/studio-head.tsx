@@ -14,7 +14,7 @@ export function StudioHead({ onReset, canReset }: { onReset: () => void; canRese
         onClick={onReset}
         disabled={!canReset}
         title="Quay về Bước 1. Dữ liệu đã lưu không xoá — chỉ luồng trên máy bạn về đầu."
-        className="inline-flex items-center gap-2 rounded-md border border-gray-300 bg-white px-3.5 py-2 text-[13px] font-semibold text-gray-700 shadow-xs transition-colors hover:border-gray-400 hover:bg-gray-50 disabled:pointer-events-none disabled:opacity-50"
+        className="inline-flex min-h-11 items-center gap-2 rounded-md border border-gray-300 bg-surface px-3.5 text-[13px] font-semibold text-gray-700 shadow-xs transition-colors outline-none hover:border-gray-400 hover:bg-gray-50 focus-visible:ring-3 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50"
       >
         <RotateCcw className="size-4" />
         Bắt đầu lại

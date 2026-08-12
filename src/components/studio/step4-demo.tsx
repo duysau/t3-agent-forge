@@ -64,7 +64,7 @@ export function Step4Demo({ slug, onBack }: { slug: string; onBack: () => void }
           Trang demo mang branding của khách. Chat thử rồi gửi link cho người khác xem.
         </PanelSub>
 
-        <div className="overflow-hidden rounded-2xl border border-border bg-white shadow-lg">
+        <div className="overflow-hidden rounded-2xl border border-border bg-surface shadow-lg">
           <BrandBar
             name={d.brandName}
             letter={d.brandLogoLetter}

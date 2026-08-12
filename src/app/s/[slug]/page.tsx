@@ -52,7 +52,34 @@ export async function generateMetadata({
   const result = await load(slug);
   const brandName = result.kind === "ok" ? result.data.brandName : null;
   return {
-    title: brandName ? `${brandName} — Demo AI Agent` : "Demo AI Agent — AgentForge",
+    // `title.template` của root layout đã thêm " — AgentForge", nên ở đây chỉ
+    // đặt phần riêng; giữ nguyên chuỗi cũ sẽ ra "... — AgentForge — AgentForge".
+    title: brandName ? `${brandName} — Demo AI Agent` : "Demo AI Agent",
+    description: brandName
+      ? `Chat thử AI Agent của ${brandName}, dựng tự động bởi AgentForge từ dữ liệu website.`
+      : "Trang demo AI Agent dựng tự động bởi AgentForge.",
+    /*
+      Trang demo per-khách: sinh tự động, nội dung mỏng và gần trùng nhau giữa
+      các slug. Cho index thì chúng tự cạnh tranh với landing page và làm loãng
+      authority của domain.
+
+      Cần CẢ `noindex` ở đây và `Disallow: /s/` trong robots.ts, không thay thế
+      được cho nhau: `Disallow` chỉ ngăn crawl, nên một URL được link từ bên
+      ngoài vẫn có thể bị index mà không cần đọc trang. Ngược lại, crawler phải
+      đọc được trang mới thấy thẻ `noindex` này. Hai lớp phủ hai đường khác nhau.
+
+      `follow: false` để link trong trang demo không truyền tín hiệu, `nocache`
+      để search engine không giữ bản cache dữ liệu khách hàng.
+    */
+    robots: { index: false, follow: false, nocache: true },
+    // Link demo thường được dán vào Zalo/Messenger — vẫn cần OG card tử tế, việc
+    // không index không liên quan gì tới việc share.
+    openGraph: {
+      type: "website",
+      locale: "vi_VN",
+      title: brandName ? `${brandName} — Demo AI Agent` : "Demo AI Agent",
+      url: `/s/${slug}`,
+    },
   };
 }
 
@@ -77,7 +104,7 @@ export default async function DemoPage({ params }: { params: Promise<{ slug: str
 
   return (
     <div className="mx-auto max-w-3xl px-6 py-10 max-[640px]:px-4">
-      <div className="overflow-hidden rounded-2xl border border-border bg-white shadow-lg">
+      <div className="overflow-hidden rounded-2xl border border-border bg-surface shadow-lg">
         <BrandBar
           name={d.brandName}
           letter={d.brandLogoLetter}
@@ -102,7 +129,7 @@ export default async function DemoPage({ params }: { params: Promise<{ slug: str
 
       {d.evalSummary && <EvalSummary summary={d.evalSummary} />}
 
-      <p className="mt-[22px] flex items-center justify-center gap-1.5 text-center text-[12.5px] text-gray-400">
+      <p className="mt-[22px] flex items-center justify-center gap-1.5 text-center text-xs text-gray-500">
         Trang demo do AgentForge sinh tự động · FPT Smart Cloud
       </p>
     </div>

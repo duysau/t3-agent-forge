@@ -29,7 +29,7 @@ export function BuildTerminal({
         <span className="size-3 rounded-full bg-success" />
         <span className="ml-2.5 font-mono text-[13px] text-term-dim">agentforge · build</span>
       </div>
-      <ul className="max-h-[340px] min-h-[230px] space-y-1 overflow-y-auto px-5 py-[18px] font-mono text-[13.5px] leading-[1.85] text-term-fg">
+      <ul className="max-h-[340px] min-h-[230px] space-y-1 overflow-y-auto px-5 py-[18px] font-mono text-sm leading-[1.85] text-term-fg">
         {lines.map((line, i) => (
           <li key={`${i}-${line.text}`} className={TONE[line.kind]}>
             {line.text}

@@ -5,7 +5,11 @@ import { getAgentBySlug, updateAgent } from "~/server/db/queries/agents";
 import { sourceForAgent } from "~/server/agentforge/resolve";
 import { saveBuildArtifacts } from "~/server/services/agent-store";
 import { withSessionRecovery } from "~/server/services/session-bridge";
-import { getLatestEvalRun, saveEvalRun } from "~/server/db/queries/eval";
+import {
+  getLatestEvalRun,
+  saveEvalRun,
+  updateEvalResultAnswer,
+} from "~/server/db/queries/eval";
 import { DEFAULT_VOICE_ID } from "~/lib/voices";
 import type { Persona } from "~/server/agentforge/schemas";
 import type { Db } from "~/server/db/types";
@@ -116,6 +120,55 @@ export const agentRouter = createTRPCRouter({
     if (agent.status !== "evaluated") return null;
     return (await getLatestEvalRun(ctx.db, agent.id)) ?? null;
   }),
+
+  /**
+   * Sửa tay câu trả lời của một bài kiểm định đã lưu.
+   *
+   * Chỉ sửa được `answer`. Điểm, nhãn phân loại và lý do của judge KHÔNG nằm trong
+   * input, nên bảng tổng kết (pass rate, avg score, breakdown) không thể lệch khỏi
+   * danh sách bên dưới bằng đường này — không có gì để tính lại.
+   *
+   * `runId` là bắt buộc chứ không suy ra "run mới nhất" ở server: client gửi lại
+   * đúng lượt mà người dùng đang nhìn, nên nếu có một lượt dựng lại xen vào giữa,
+   * lần sửa này trượt (`NOT_FOUND`) thay vì hạ cánh xuống bảng điểm mới. Thà báo
+   * hỏng còn hơn ghi đè im lặng lên một câu trả lời chưa ai đọc.
+   *
+   * KHÔNG chặn theo `status`: `agent.evalRun` giấu bảng điểm khi status khác
+   * "evaluated", nên một lượt dựng lại đã khiến hàng cũ không còn hiện ra để mà sửa.
+   * Chặn thêm ở đây chỉ đổi một lần trượt đã đúng thành một thông báo lỗi khác.
+   */
+  updateEvalAnswer: publicProcedure
+    .input(
+      z.object({
+        slug: z.string().min(1),
+        runId: z.string().uuid(),
+        ord: z.number().int().min(0),
+        // Câu trả lời rỗng thì dòng đó thành một bài kiểm định không có gì để đọc,
+        // và cột `answer` là NOT NULL. `.trim()` chạy TRƯỚC `.min(1)`, nên một chuỗi
+        // toàn khoảng trắng bị chặn chứ không lưu thành ô trống.
+        answer: z.string().trim().min(1, "Câu trả lời không được để trống"),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const agent = await requireAgent(ctx, input.slug);
+
+      const ok = await updateEvalResultAnswer(
+        ctx.db,
+        agent.id,
+        input.runId,
+        input.ord,
+        input.answer,
+      );
+
+      if (!ok) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Không tìm thấy bài kiểm định này — có thể agent đã được dựng lại",
+        });
+      }
+
+      return { ord: input.ord, answer: input.answer };
+    }),
 
   /**
    * Artifacts đã lưu của agent, để Bước 3 hiện lại được KHÔNG cần dựng lại.

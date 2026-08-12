@@ -69,13 +69,20 @@ describe("Step2ProductView", () => {
     expect(onBack).toHaveBeenCalledTimes(1);
   });
 
-  it("thẻ đang chọn hiện dấu ✓, thẻ chưa chọn thì không", () => {
+  it("thẻ đang chọn được đánh dấu là đã chọn, thẻ chưa chọn thì không", () => {
     render(<Step2ProductView {...base} product="chat" />);
     const chatCard = screen.getByText("FPT AI Chat").closest("button");
     const voiceCard = screen.getByText("FPT AI Engage").closest("button");
     expect(chatCard).not.toBeNull();
     expect(voiceCard).not.toBeNull();
-    expect(chatCard).toHaveTextContent("✓");
-    expect(voiceCard).not.toHaveTextContent("✓");
+    /*
+      Kiểm `aria-pressed` chứ không kiểm ký tự "✓" trong text như bản cũ. Dấu tick
+      giờ là icon SVG (`Check` của lucide) nên không còn text node nào để so —
+      nhưng quan trọng hơn: `aria-pressed` mới là thứ screen reader thật đọc để
+      biết thẻ nào đang được chọn, còn một glyph trang trí (`aria-hidden`) thì
+      không. Test giờ khoá đúng cái tín hiệu mang nghĩa.
+    */
+    expect(chatCard).toHaveAttribute("aria-pressed", "true");
+    expect(voiceCard).toHaveAttribute("aria-pressed", "false");
   });
 });
